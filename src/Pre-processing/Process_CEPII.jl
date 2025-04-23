@@ -2,7 +2,8 @@
 using CSV
 using DataFrames
 import Statistics as stat 
-cd("C:\\Users\\saeed.shadkam\\OneDrive - Government of Alberta\\Desktop\\ComTrade\\CEPII\\")
+cd(joinpath(@__DIR__, "data//CEPII"))
+
 starting_year = 2013
 
 
@@ -165,7 +166,7 @@ select!(Trade_data5, [:year, :importer, :exporter, :hsCode, :value, :AvgUnitPric
 
 # Saving the data
 
-CSV.write("1- CEPII_Processed_HS4_$(starting_year)_2023.csv", Trade_data5, writeheader = true)
+CSV.write("..//1- CEPII_Processed_HS4_$(starting_year)_2023.csv", Trade_data5, writeheader = true)
 
 
 

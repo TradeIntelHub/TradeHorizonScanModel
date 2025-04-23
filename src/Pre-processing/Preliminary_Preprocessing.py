@@ -7,7 +7,9 @@ import os
 # This code is designed for the first version of the Xinyue files which had all the variables
 # I comment out the lines related to those variables and run it for the Selected Variables version
 # Load the data
-os.chdir("C:\\Users\\saeed.shadkam\\OneDrive - Government of Alberta\\Desktop\\ComTrade\\Other Tables\\")
+
+
+os.chdir(os.path.join(os.getcwd(), 'src', 'Pre-processing', 'data'))
 df = pd.read_csv("2- Diversification_Project_Raw.csv", low_memory=False)
 
 # Making sure data types are reasonable

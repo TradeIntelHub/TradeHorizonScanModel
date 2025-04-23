@@ -5,15 +5,13 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 
-os.chdir("C:\\Users\\saeed.shadkam\\OneDrive - Government of Alberta\\Desktop\\ComTrade\\Other Tables\\")
+
+os.chdir(os.path.join(os.getcwd(), 'src', 'Pre-processing', 'data'))
 data = pd.read_csv("3- Diversification_Project_Preprocessed.csv", low_memory=False)
 data.sort_values(by=['importer', 'exporter', 'hsCode', 'year'], inplace=True)
 data.reset_index()
 a = data.loc[data.year>=2015]
 print(f'Number of Nan values before the transformation: {a.isna().sum().sum()} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1])} %')
-
-
-data = data.loc[data.exporter == 32]
 
 
 

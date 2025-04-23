@@ -1,7 +1,7 @@
 using DataFrames
 using CSV
 import Statistics as stat
-cd("C:\\Users\\saeed.shadkam\\OneDrive - Government of Alberta\\Desktop\\ComTrade\\Other Tables\\")
+cd(joinpath(@__DIR__, "data"))
 starting_year = 2013
 
 Trade_data = DataFrame(CSV.File("1- CEPII_Processed_HS4_$(starting_year)_2023.csv"));
