@@ -1,0 +1,45 @@
+from typing import List
+from data_utils import load_maps, TradeDataset
+from trainer import cross_validate
+
+def main() -> None:
+    exporter_map, importer_map, country_map = load_maps(
+        '../data/exporter_file.csv', # you can replace file names as you need
+        '../data/importer_file.csv',
+        '../data/country_file.csv'
+    )
+
+    trade_feats: List[str] = [
+        'MA_AvgUnitPriceofImporterFromWorld',
+        'MA_TotalImportofCmdbyReporter',
+        'MA_AvgUnitPriceofExporterToWorld',
+        'MA_TotalExportofCmdbyPartner',
+        'MA_Trade_Complementarity',
+        'MA_Partner_Revealed_Comparative_Advantage',
+        'MA_Liberalising',
+        'MA_Harmful'
+        #...or other columns here
+    ]
+
+    dataset = TradeDataset(
+        trd_path = '../data/trade_file.csv', # replace file name if you need
+        exp_map = exporter_map,
+        imp_map = importer_map,
+        cty_map = country_map,
+        trd_feats = trade_feats
+    )
+
+    mean_mse, std_mse = cross_validate(
+        dataset = dataset,
+        hs_map_size = len(dataset.hs_map),
+        yr_map_size = len(dataset.year_map),
+        dim_trade = len(trade_feats),
+        dim_exp = next(iter(exporter_map.values())).shape[0],
+        dim_imp = next(iter(importer_map.values())).shape[0],
+        dim_cty = next(iter(country_map.values())).shape[0]
+    )
+
+    print(f"average validation MSE: {mean_mse:.4f} ± {std_mse:.4f}")
+
+if __name__ == '__main__':
+    main()
