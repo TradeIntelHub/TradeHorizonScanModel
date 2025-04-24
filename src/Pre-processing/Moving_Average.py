@@ -121,15 +121,20 @@ data['MA_AvgUnitPriceofExporterToWorldFlags'] = np.where(data['MA_AvgUnitPriceof
 data['MA_AvgUnitPriceofExporterToWorld'] = data['MA_AvgUnitPriceofExporterToWorld'].fillna(0)
 
 
+# Including Covid years
+# https://www.nm.org/healthbeat/medical-advances/new-therapies-and-drug-trials/covid-19-pandemic-timeline
+# Pendemic started in March 2020 and ended in May 2023
+# 2020, 2021, and 2022 are flagged as Covid years
+data['Covid'] = np.where(data['year'].isin([2020, 2021, 2022]), True, False)
 
 data = data.round(3)
 
 
 # Saving the output files
 trade_col = ['hsCode', 'year', 'importer', 'exporter', 'value', 'AvgUnitPrice','AvgUnitPriceFlags', 'AvgUnitPriceofImporterFromWorld','AvgUnitPriceofImporterFromWorldFlags', 'TotalImportofCmdbyReporter',
-             'AvgUnitPriceofExporterToWorld','AvgUnitPriceofExporterToWorldFlags', 'TotalExportofCmdbyPartner','Trade_Complementarity','Partner_Revealed_Comparative_Advantage', 'Liberalising', 'Harmful']
+             'AvgUnitPriceofExporterToWorld','AvgUnitPriceofExporterToWorldFlags', 'TotalExportofCmdbyPartner','Trade_Complementarity','Partner_Revealed_Comparative_Advantage', 'Liberalising', 'Harmful', 'Covid']
 MA_trade_col = ['hsCode', 'year', 'importer', 'exporter','MA_value', 'MA_AvgUnitPrice', 'MA_AvgUnitPriceFlags', 'MA_AvgUnitPriceofImporterFromWorld', 'MA_AvgUnitPriceofImporterFromWorldFlags', 'MA_TotalImportofCmdbyReporter',
-                'MA_AvgUnitPriceofExporterToWorld','MA_AvgUnitPriceofExporterToWorldFlags','MA_AvgUnitPriceofExporterToWorldFlags', 'MA_TotalExportofCmdbyPartner','MA_Trade_Complementarity','MA_Partner_Revealed_Comparative_Advantage', 'MA_Liberalising', 'MA_Harmful']
+                'MA_AvgUnitPriceofExporterToWorld','MA_AvgUnitPriceofExporterToWorldFlags','MA_AvgUnitPriceofExporterToWorldFlags', 'MA_TotalExportofCmdbyPartner','MA_Trade_Complementarity','MA_Partner_Revealed_Comparative_Advantage', 'MA_Liberalising', 'MA_Harmful', 'Covid']
 trade = data[trade_col].drop_duplicates()
 MA_trade = data[MA_trade_col].drop_duplicates()
 trade.to_csv("output\\Trade.csv", index=False)
@@ -155,6 +160,19 @@ country = data[country_col].drop_duplicates()
 MA_country = data[MA_country_col].drop_duplicates()
 country.to_csv("output\\Country.csv", index=False)
 MA_country.to_csv("output\\MA_Country.csv", index=False)
+
+# Visualizing Total Trade Value Over Time
+# We are marking the Covid years but no fixed year effect for now!
+df  = data.groupby('year')['value'].sum().reset_index()
+df2  = data.loc[data.hsCode!=2709].groupby('year')['value'].sum().reset_index()
+df.columns = ['year', 'value']
+df2.columns = ['year', 'value']
+fig = px.line(df, x='year', y='value', title='Total Trade Value Over Time')
+fig.add_scatter(x=df2['year'], y=df2['value'], mode='lines+markers', name='Total Trade Excluding oil')
+fig.update_traces(mode='lines+markers')
+fig.update_layout(xaxis_title='Year', yaxis_title='Total Trade Value (in 1,000 USD)')
+fig.show()
+
 
 
 
