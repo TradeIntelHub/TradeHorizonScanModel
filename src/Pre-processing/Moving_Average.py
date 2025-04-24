@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import os
 
 
+
 os.chdir(os.path.join(os.getcwd(), 'src', 'Pre-processing', 'data'))
 data = pd.read_csv("3- Diversification_Project_Preprocessed.csv", low_memory=False)
 data.sort_values(by=['importer', 'exporter', 'hsCode', 'year'], inplace=True)
@@ -50,11 +51,11 @@ data = pd.merge(data, df, on=['year', 'exporter', 'hsCode'], how='left')
 
 # Calculating the moving average (['importer', 'hsCode])
 # Basically variables that are specific to an importer and hsCode (and a year obviously)
-col = ['AvgUnitPriceofImporterToWorld', 'TotalImportofCmdbyReporter']
-df = data[['importer', 'hsCode', 'year', 'AvgUnitPriceofExporterToWorld', 'TotalExportofCmdbyPartner']].drop_duplicates()
+col = ['AvgUnitPriceofImporterFromWorld', 'TotalImportofCmdbyReporter']
+df = data[['importer', 'hsCode', 'year', 'AvgUnitPriceofImporterFromWorld', 'TotalImportofCmdbyReporter']].drop_duplicates()
 df = df.sort_values(by=['importer', 'hsCode', 'year'])
 df = df.set_index('year').groupby(['importer', 'hsCode'])[col].rolling(window=3, min_periods=1).mean().reset_index()
-df.columns = ['importer', 'hsCode', 'year', 'MA_AvgUnitPriceofImporterToWorld', 'MA_TotalImportofCmdbyReporter']
+df.columns = ['importer', 'hsCode', 'year', 'MA_AvgUnitPriceofImporterFromWorld', 'MA_TotalImportofCmdbyReporter']
 # Merge the moving average with the original dataframe
 data = pd.merge(data, df, on=['year', 'importer', 'hsCode'], how='left')
 
@@ -99,36 +100,61 @@ data.sort_values(by=['importer', 'exporter', 'hsCode', 'year'], inplace=True)
 a = data.loc[data.year>=2015]
 print(f'Number of Nan values before the transformation: {a.isna().sum().sum()} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1])} %')
 
+
+# I will replace nan values in UnitPrice columnS with 0s and add a new columns called UnitPriceFlags to indicate the rows that were replaced
+data['AvgUnitPriceFlags'] = np.where(data['AvgUnitPrice'].isna(), True, False)
+data['AvgUnitPrice'] = data['AvgUnitPrice'].fillna(0)
+
+data['MA_AvgUnitPriceFlags'] = np.where(data['MA_AvgUnitPrice'].isna(), True, False)
+data['MA_AvgUnitPrice'] = data['MA_AvgUnitPrice'].fillna(0)
+
+data['AvgUnitPriceofImporterFromWorldFlags'] = np.where(data['AvgUnitPriceofImporterFromWorld'].isna(), True, False)
+data['AvgUnitPriceofImporterFromWorld'] = data['AvgUnitPriceofImporterFromWorld'].fillna(0)
+
+data['MA_AvgUnitPriceofImporterFromWorldFlags'] = np.where(data['MA_AvgUnitPriceofImporterFromWorld'].isna(), True, False)
+data['MA_AvgUnitPriceofImporterFromWorld'] = data['MA_AvgUnitPriceofImporterFromWorld'].fillna(0)
+
+data['AvgUnitPriceofExporterToWorldFlags'] = np.where(data['AvgUnitPriceofExporterToWorld'].isna(), True, False)
+data['AvgUnitPriceofExporterToWorld'] = data['AvgUnitPriceofExporterToWorld'].fillna(0)
+
+data['MA_AvgUnitPriceofExporterToWorldFlags'] = np.where(data['MA_AvgUnitPriceofExporterToWorld'].isna(), True, False)
+data['MA_AvgUnitPriceofExporterToWorld'] = data['MA_AvgUnitPriceofExporterToWorld'].fillna(0)
+
+
+
+data = data.round(3)
+
+
 # Saving the output files
-trade_col = ['hsCode', 'year', 'importer', 'exporter', 'value', 'AvgUnitPrice', 'AvgUnitPriceofImporterFromWorld', 'TotalImportofCmdbyReporter',
-             'AvgUnitPriceofExporterToWorld', 'TotalExportofCmdbyPartner','Trade_Complementarity','Partner_Revealed_Comparative_Advantage', 'Liberalising', 'Harmful']
-MA_trade_col = ['hsCode', 'year', 'importer', 'exporter','MA_value', 'MA_AvgUnitPrice', 'MA_AvgUnitPriceofImporterFromWorld', 'MA_TotalImportofCmdbyReporter',
-                'MA_AvgUnitPriceofExporterToWorld', 'MA_TotalExportofCmdbyPartner','MA_Trade_Complementarity','MA_Partner_Revealed_Comparative_Advantage', 'MA_Liberalising', 'MA_Harmful']
+trade_col = ['hsCode', 'year', 'importer', 'exporter', 'value', 'AvgUnitPrice','AvgUnitPriceFlags', 'AvgUnitPriceofImporterFromWorld','AvgUnitPriceofImporterFromWorldFlags', 'TotalImportofCmdbyReporter',
+             'AvgUnitPriceofExporterToWorld','AvgUnitPriceofExporterToWorldFlags', 'TotalExportofCmdbyPartner','Trade_Complementarity','Partner_Revealed_Comparative_Advantage', 'Liberalising', 'Harmful']
+MA_trade_col = ['hsCode', 'year', 'importer', 'exporter','MA_value', 'MA_AvgUnitPrice', 'MA_AvgUnitPriceFlags', 'MA_AvgUnitPriceofImporterFromWorld', 'MA_AvgUnitPriceofImporterFromWorldFlags', 'MA_TotalImportofCmdbyReporter',
+                'MA_AvgUnitPriceofExporterToWorld','MA_AvgUnitPriceofExporterToWorldFlags','MA_AvgUnitPriceofExporterToWorldFlags', 'MA_TotalExportofCmdbyPartner','MA_Trade_Complementarity','MA_Partner_Revealed_Comparative_Advantage', 'MA_Liberalising', 'MA_Harmful']
 trade = data[trade_col].drop_duplicates()
 MA_trade = data[MA_trade_col].drop_duplicates()
-trade.to_csv("Final Tables\\Trade.csv", index=False)
-MA_trade.to_csv("Final Tables\\MA_Trade.csv", index=False)
+trade.to_csv("output\\Trade.csv", index=False)
+MA_trade.to_csv("output\\MA_Trade.csv", index=False)
 
 importer_col = ['importer', 'year', 'Theil_Importer_Concentration', 'GDPPerCapita_importer', 'TariffRatesAllProductsWeigthedAverage_importer', 'GeopoliticalIndex_importer', 'ConsumerPriceIndex_importer']
 MA_importer_col = ['importer', 'year', 'MA_Theil_Importer_Concentration', 'MA_GDPPerCapita_importer', 'MA_TariffRatesAllProductsWeigthedAverage_importer', 'MA_GeopoliticalIndex_importer', 'MA_ConsumerPriceIndex_importer']
 importer = data[importer_col].drop_duplicates()
 MA_importer = data[MA_importer_col].drop_duplicates()
-importer.to_csv("Final Tables\\Importer.csv", index=False)
-MA_importer.to_csv("Final Tables\\MA_Importer.csv", index=False)
+importer.to_csv("output\\Importer.csv", index=False)
+MA_importer.to_csv("output\\MA_Importer.csv", index=False)
 
 exporter_col = ['exporter', 'year', 'Theil_Exporter_Concentration', 'GDPPerCapita_exporter', 'TariffRatesAllProductsWeigthedAverage_exporter', 'GeopoliticalIndex_exporter', 'ConsumerPriceIndex_exporter']
 MA_exporter_col = ['exporter', 'year', 'MA_Theil_Exporter_Concentration', 'MA_GDPPerCapita_exporter', 'MA_TariffRatesAllProductsWeigthedAverage_exporter', 'MA_GeopoliticalIndex_exporter', 'MA_ConsumerPriceIndex_exporter']
 exporter = data[exporter_col].drop_duplicates()
 MA_exporter = data[MA_exporter_col].drop_duplicates()
-exporter.to_csv("Final Tables\\Exporter.csv", index=False)
-MA_exporter.to_csv("Final Tables\\MA_Exporter.csv", index=False)
+exporter.to_csv("output\\Exporter.csv", index=False)
+MA_exporter.to_csv("output\\MA_Exporter.csv", index=False)
 
 country_col = ['importer', 'exporter', 'contig', 'dist']
 MA_country_col = ['importer', 'exporter', 'MA_contig', 'MA_dist']
 country = data[country_col].drop_duplicates()
 MA_country = data[MA_country_col].drop_duplicates()
-country.to_csv("Final Tables\\Country.csv", index=False)
-MA_country.to_csv("Final Tables\\MA_Country.csv", index=False)
+country.to_csv("output\\Country.csv", index=False)
+MA_country.to_csv("output\\MA_Country.csv", index=False)
 
 
 
