@@ -52,8 +52,8 @@ def load_maps(
     # standardize each branch's features
     def standardize(raw_map: Dict) -> Dict:
         arr = np.stack(list(raw_map.values()), axis=0)
-        mean = arr.mean(axis=0)
-        std = arr.std(axis=0)
+        mean = np.nanmean(arr, axis=0)
+        std = np.nanstd(arr, axis=0)
         return {k: (v - mean) / std for k, v in raw_map.items()}
 
     exp_map = standardize(raw_exp)
