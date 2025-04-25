@@ -3,7 +3,6 @@ from data_utils import load_maps, TradeDataset
 from trainer import cross_validate
 
 def main() -> None:
-
     exporter_map, importer_map, country_map = load_maps(
         '../TradeHorizonScan/data/MA_Exporter.csv', 
         '../TradeHorizonScan/data/MA_Importer.csv',
