@@ -4,9 +4,9 @@ from trainer import cross_validate
 
 def main() -> None:
     exporter_map, importer_map, country_map = load_maps(
-        '../data/exporter_file.csv', # you can replace file names as you need
-        '../data/importer_file.csv',
-        '../data/country_file.csv'
+        '../TradeHorizonScan/data/MA_Exporter.csv', 
+        '../TradeHorizonScan/data/MA_Importer.csv',
+        '../TradeHorizonScan/data/MA_Country.csv'
     )
 
     trade_feats: List[str] = [
