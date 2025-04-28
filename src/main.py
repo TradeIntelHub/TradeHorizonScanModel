@@ -23,7 +23,6 @@ def main() -> None:
         'MA_Liberalising',
         'MA_Harmful',
         'Covid'
-        #...or other columns here
     ]
 
     dataset = TradeDataset(
