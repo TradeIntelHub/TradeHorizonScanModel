@@ -10,19 +10,24 @@ def main() -> None:
     )
 
     trade_feats: List[str] = [
+        'MA_AvgUnitPrice',
+        'MA_AvgUnitPriceFlags',
         'MA_AvgUnitPriceofImporterFromWorld',
+        'MA_AvgUnitPriceofImporterFromWorldFlags',
         'MA_TotalImportofCmdbyReporter',
         'MA_AvgUnitPriceofExporterToWorld',
+        'MA_AvgUnitPriceofExporterToWorldFlags',
         'MA_TotalExportofCmdbyPartner',
         'MA_Trade_Complementarity',
         'MA_Partner_Revealed_Comparative_Advantage',
         'MA_Liberalising',
-        'MA_Harmful'
+        'MA_Harmful',
+        'Covid'
         #...or other columns here
     ]
 
     dataset = TradeDataset(
-        trd_path = '../data/trade_file.csv', # replace file name if you need
+        trd_path = '../TradeHorizonScan/data/MA_Trade.csv', 
         exp_map = exporter_map,
         imp_map = importer_map,
         cty_map = country_map,
