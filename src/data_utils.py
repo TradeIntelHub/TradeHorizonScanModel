@@ -83,7 +83,8 @@ class TradeDataset(Dataset):
         self.trd_std  = feat_arr.std(axis=0)
         # categorical maps
         self.hs_map = {code: i for i, code in enumerate(self.df['hsCode'].unique())}
-        self.yr_map = {yr: i for i, yr in enumerate(self.df['year'].unique())}
+        # For now we don't use year as a feature, so we don't need to map it to an index
+        # self.yr_map = {yr: i for i, yr in enumerate(self.df['year'].unique())}
         # branch maps (already standardized)
         self.exp_map = exp_map
         self.imp_map = imp_map
@@ -98,7 +99,7 @@ class TradeDataset(Dataset):
         row = self.df.iloc[idx]
         # embeddings
         h_idx = self.hs_map[row.hsCode]
-        y_idx = self.yr_map[row.year]
+        # y_idx = self.yr_map[row.year]
         # trade x standardized
         raw_trade = np.array([row[col] for col in self.trd_feats], dtype=np.float32)
         std_trade = (raw_trade - self.trd_mean) / self.trd_std
@@ -111,7 +112,7 @@ class TradeDataset(Dataset):
 
         return (
             torch.tensor(h_idx, dtype=torch.long),
-            torch.tensor(y_idx, dtype=torch.long),
+            # torch.tensor(y_idx, dtype=torch.long),
             trd_x,
             exp_x,
             imp_x,
