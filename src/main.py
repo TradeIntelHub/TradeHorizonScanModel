@@ -2,7 +2,6 @@ from typing import List
 from src.data_utils import load_maps, TradeDataset
 from src.trainer import cross_validate
 
-import os
 
 def main() -> None:
     exporter_map, importer_map, country_map = load_maps(
