@@ -43,9 +43,7 @@ def load_maps(
     raw_cty = {
         (row.importer, row.exporter): np.array([
             row['MA_contig'],
-            row['MA_dist'],
-            row['MA_landlocked']
-        ], dtype=np.float32)
+            row['MA_dist']], dtype=np.float32)
         for _, row in country_df.iterrows()
     }
 
