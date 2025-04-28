@@ -11,12 +11,12 @@ class TradeHorizonScanModel(nn.Module):
         dim_imp: int,
         dim_cty: int,
         dropout_p: float = 0.2,
-        emb_hs: int = 32,
-        emb_yr: int = 16
+        emb_hs: int = 16
+        #emb_yr: int = 16
     ) -> None:
         super().__init__()
         self.hs_emb = nn.Embedding(n_hs, emb_hs)
-        self.yr_emb = nn.Embedding(n_yr, emb_yr)
+        #self.yr_emb = nn.Embedding(n_yr, emb_yr)
 
         self.trd_net = nn.Sequential(
             nn.Linear(dim_trd, 64),
@@ -43,7 +43,7 @@ class TradeHorizonScanModel(nn.Module):
             nn.ReLU()
         )
 
-        total_dim = 32 + 8 + 8 + 4 + emb_hs + emb_yr
+        total_dim = 32 + 8 + 8 + 4 + emb_hs #+ emb_yr
         self.concat_model_head = nn.Sequential(
             nn.Linear(total_dim, 64),
             nn.ReLU(),
@@ -68,17 +68,17 @@ class TradeHorizonScanModel(nn.Module):
     def forward(
         self,
         hs_idx: torch.Tensor,
-        yr_idx: torch.Tensor,
+        #yr_idx: torch.Tensor,
         trd_x: torch.Tensor,
         exp_x: torch.Tensor,
         imp_x: torch.Tensor,
         cty_x: torch.Tensor
     ) -> torch.Tensor:
         hs_emb = self.hs_emb(hs_idx)
-        yr_emb = self.yr_emb(yr_idx)
+        #yr_emb = self.yr_emb(yr_idx)
         trd_out = self.trd_net(trd_x)
         exp_out = self.exp_net(exp_x)
         imp_out = self.imp_net(imp_x)
         cty_out = self.cty_net(cty_x)
-        x     = torch.cat([trd_out, exp_out, imp_out, cty_out, hs_emb, yr_emb], dim=1)
+        x     = torch.cat([trd_out, exp_out, imp_out, cty_out, hs_emb], dim=1)#yr_emb removed
         return self.concat_model_head(x).squeeze(1)
