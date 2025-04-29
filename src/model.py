@@ -5,7 +5,7 @@ class TradeHorizonScanModel(nn.Module):
     def __init__(
         self,
         n_hs: int,
-        n_yr: int,
+        #n_yr: int,
         dim_trd: int,
         dim_exp: int,
         dim_imp: int,
@@ -82,3 +82,17 @@ class TradeHorizonScanModel(nn.Module):
         cty_out = self.cty_net(cty_x)
         x     = torch.cat([trd_out, exp_out, imp_out, cty_out, hs_emb], dim=1)#yr_emb removed
         return self.concat_model_head(x).squeeze(1)
+
+
+
+
+
+
+
+
+
+
+
+
+
+

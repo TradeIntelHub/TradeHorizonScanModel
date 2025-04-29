@@ -19,6 +19,9 @@ def load_maps(
 ]:
  # read and build raw maps
     exporter_df = pd.read_csv(exporter_path)
+    # Replacing NaN values with mean for the columns
+    exporter_df["MA_GeopoliticalIndex_exporter"] = exporter_df["MA_GeopoliticalIndex_exporter"].fillna(exporter_df["MA_GeopoliticalIndex_exporter"].mean())
+    exporter_df["MA_TariffRatesAllProductsWeigthedAverage_exporter"] = exporter_df["MA_TariffRatesAllProductsWeigthedAverage_exporter"].fillna(exporter_df["MA_TariffRatesAllProductsWeigthedAverage_exporter"].mean())
     raw_exp = {
         (row.exporter, row.year): np.array([
             row['MA_Theil_Exporter_Concentration'],
@@ -29,6 +32,9 @@ def load_maps(
         for _, row in exporter_df.iterrows()
     }
     importer_df = pd.read_csv(importer_path)
+    # Replacing NaN values with mean for the columns
+    importer_df["MA_GeopoliticalIndex_importer"] = importer_df["MA_GeopoliticalIndex_importer"].fillna(importer_df["MA_GeopoliticalIndex_importer"].mean())
+    importer_df["MA_TariffRatesAllProductsWeigthedAverage_importer"] = importer_df["MA_TariffRatesAllProductsWeigthedAverage_importer"].fillna(importer_df["MA_TariffRatesAllProductsWeigthedAverage_importer"].mean())
     raw_imp = {
         (row.importer, row.year): np.array([
             row['MA_Theil_Importer_Concentration'],
@@ -50,8 +56,8 @@ def load_maps(
     # standardize each branch's features
     def standardize(raw_map: Dict) -> Dict:
         arr = np.stack(list(raw_map.values()), axis=0)
-        mean = np.nanmean(arr, axis=0)
-        std = np.nanstd(arr, axis=0)
+        mean = np.mean(arr, axis=0)
+        std = np.mean(arr, axis=0)
         return {k: (v - mean) / std for k, v in raw_map.items()}
 
     exp_map = standardize(raw_exp)
