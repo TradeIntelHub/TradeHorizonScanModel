@@ -42,7 +42,9 @@ model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
 
 checkpoint = torch.load('../TradeHorizonScan/models/checkpoint.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
-model.eval()
+lr = 1e-3
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 epoch = checkpoint['epoch']
 train_losses = checkpoint['loss']
 
