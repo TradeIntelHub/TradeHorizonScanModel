@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import KFold
 from model import TradeHorizonScanModel
+from torcheval.metrics import R2Score
 
 def cross_validate(
     dataset,
@@ -22,6 +23,7 @@ def cross_validate(
 ) -> Tuple[float, float]:
     kfold = KFold(n_splits=k_splits, shuffle=True, random_state=42)
     fold_losses = []
+    fold_r2s = []
 
     for _, (train_idx, val_idx) in enumerate(kfold.split(dataset), 1):
         train_loader = DataLoader(Subset(dataset, train_idx), batch_size=batch_size, shuffle=True, num_workers=4)
@@ -50,13 +52,17 @@ def cross_validate(
 
         # validation
         val_loss = 0.0
+        r2_metric = R2Score().to(device) 
         model.eval()
         with torch.no_grad():
             for h_idx, y_idx, tx, ex, im, ct, y in val_loader:
                 h_idx, y_idx, tx, ex, im, ct, y = [t.to(device) for t in (h_idx,y_idx,tx,ex,im,ct,y)]
-                val_loss += criterion(model(h_idx,y_idx,tx,ex,im,ct), y).item() * y.size(0)
+                preds = model(h_idx, tx, ex, im, ct)
+                _ = r2_metric.update(preds, y)
+                val_loss += criterion(preds, y).item() * y.size(0)
         val_loss /= len(val_idx)
         fold_losses.append(val_loss)
+        fold_r2s.append(r2_metric.compute())
 
     mean_loss = float(np.mean(fold_losses))
     std_loss  = float(np.std(fold_losses))
