@@ -67,4 +67,6 @@ def cross_validate(
 
     mean_loss = float(np.mean(fold_losses))
     std_loss  = float(np.std(fold_losses))
+    mean_r2 = float(np.mean(fold_r2s))
+    std_r2 = float(np.std(fold_r2s))
     return mean_loss, std_loss
