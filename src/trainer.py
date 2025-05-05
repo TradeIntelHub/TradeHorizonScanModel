@@ -16,7 +16,7 @@ def cross_validate(
     dim_imp: int,
     dim_cty: int,
     k_splits: int = 9,
-    batch_size: int = 64,
+    batch_size: int = 1024,
     lr: float = 1e-3,
     epochs: int = 20,
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

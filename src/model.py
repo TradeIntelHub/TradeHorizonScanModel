@@ -11,7 +11,7 @@ class TradeHorizonScanModel(nn.Module):
         dim_imp: int,
         dim_cty: int,
         dropout_p: float = 0.2,
-        emb_hs: int = 16
+        emb_hs: int = 64
         #emb_yr: int = 16
     ) -> None:
         super().__init__()
