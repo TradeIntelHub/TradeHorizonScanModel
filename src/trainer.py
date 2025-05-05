@@ -44,8 +44,8 @@ def cross_validate(
         for _ in range(1, epochs + 1):
             model.train()
             for h_idx, tx, ex, im, ct, y in train_loader: #remove y_idx to match with the model
-                h_idx, tx, ex, im, ct, y = [t.to(device) for t in (h_idx,y_idx,tx,ex,im,ct,y)]#remove y_idx to match with the model
-                preds = model(h_idx,y_idx,tx,ex,im,ct)
+                h_idx, tx, ex, im, ct, y = [t.to(device) for t in (h_idx,tx,ex,im,ct,y)]#remove y_idx to match with the model
+                preds = model(h_idx,tx,ex,im,ct)
                 loss = criterion(preds, y)
                 optimizer.zero_grad()
                 loss.backward()
