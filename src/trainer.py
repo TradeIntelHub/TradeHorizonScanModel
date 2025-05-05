@@ -21,7 +21,7 @@ def cross_validate(
     lr: float = 1e-3,
     epochs: int = 20,
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-) -> Tuple[float, float]:
+) -> tuple[float, float,float, float]:
     kfold = KFold(n_splits=k_splits, shuffle=True, random_state=42)
     fold_losses = []
     fold_r2s = []
@@ -58,7 +58,7 @@ def cross_validate(
         with torch.no_grad():
             for h_idx, y_idx, tx, ex, im, ct, y in val_loader:
                 h_idx, y_idx, tx, ex, im, ct, y = [t.to(device) for t in (h_idx,y_idx,tx,ex,im,ct,y)]
-                preds = model(h_idx, tx, ex, im, ct)
+                preds = model(h_idx, y_idx, tx, ex, im, ct)
                 _ = r2_metric.update(preds, y)
                 val_loss += criterion(preds, y).item() * y.size(0)
         val_loss /= len(val_idx)
