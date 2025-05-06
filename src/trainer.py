@@ -21,7 +21,7 @@ def cross_validate(
     lr: float = 1e-3,
     epochs: int = 20,
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-) -> Tuple[float, float]:
+) -> Tuple[float, float, float, float]:
     kfold = KFold(n_splits=k_splits, shuffle=True, random_state=42)
     fold_losses = []
     fold_r2s = []
@@ -93,4 +93,4 @@ def cross_validate(
     std_loss  = float(np.std(fold_losses))
     mean_r2 = float(np.mean(fold_r2s))
     std_r2 = float(np.std(fold_r2s))
-    return mean_loss, std_loss
+    return mean_loss, std_loss, mean_r2, std_r2
