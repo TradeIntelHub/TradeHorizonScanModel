@@ -40,7 +40,7 @@ model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
     dim_imp = next(iter(importer_map.values())).shape[0],
     dim_cty = next(iter(country_map.values())).shape[0])
 
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint.pth')
+checkpoint = torch.load('../TradeHorizonScan/models/checkpoint200.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 lr = 1e-3
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -58,7 +58,6 @@ with torch.no_grad():
 hs_embedding = dict(zip(keys, hs_emb))
 
 
-hs_embedding['9702']
 hs_embedding = {str(k).zfill(4): v for k, v in hs_embedding.items()}
 
 from collections import defaultdict
@@ -67,7 +66,6 @@ for code in hs_embedding.keys():
     prefix = code[:2]
     prefix_groups[prefix].append(code)
 
-prefix_groups
 
 
 from sklearn.metrics.pairwise import cosine_similarity
@@ -97,3 +95,22 @@ avg_out = np.mean(abs(np.array(out_group_sims)))
 
 print(f"Avg cosine similarity within groups: {avg_within:.4f}")
 print(f"Avg cosine similarity out of groups: {avg_out:.4f}")
+
+
+
+def get_top_n_similar_codes(hs_embedding, code, n=5):    
+    target_embedding = hs_embedding[code]
+    similarities = []
+    
+    for other_code, other_embedding in hs_embedding.items():
+        if other_code != code:
+            sim = cosine_similarity([target_embedding], [other_embedding])[0][0]
+            similarities.append((other_code, sim))
+    
+    # Sort by similarity score in descending order
+    similarities.sort(key=lambda x: x[1], reverse=True)
+    
+    return similarities[:n]  # Return top n similar codes
+
+
+get_top_n_similar_codes(hs_embedding, '2711', n=5)
