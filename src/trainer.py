@@ -21,7 +21,7 @@ def cross_validate(
     lr: float = 1e-3,
     epochs: int = 20,
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-) -> Tuple[float, float, float, float]:
+) -> Tuple[float, float]:
     kfold = KFold(n_splits=k_splits, shuffle=True, random_state=42)
     fold_losses = []
     fold_r2s = []
@@ -64,6 +64,30 @@ def cross_validate(
         val_loss /= len(val_idx)
         fold_losses.append(val_loss)
         fold_r2s.append(r2_metric.compute())
+
+    #print MSE
+    plt.figure(figsize=(12, 5))
+    plt.subplot(1, 2, 1)
+    folds = list(range(1, k_splits + 1))
+    plt.plot(folds, fold_losses, marker='o', linestyle='-', color='b', label='Validation Loss')
+    plt.title('Validation Loss (MSE) Across Folds')
+    plt.xlabel('Fold')
+    plt.ylabel('Mean Squared Error (MSE)')
+    plt.grid(True)
+    plt.legend()
+    
+    # Print R² Score
+    plt.subplot(1, 2, 2)
+    plt.plot(folds, fold_r2s, marker='o', linestyle='-', color='g', label='R² Score')
+    plt.title('R² Score Across Folds')
+    plt.xlabel('Fold')
+    plt.ylabel('R² Score')
+    plt.grid(True)
+    plt.legend()
+    
+    plt.tight_layout()
+    plt.show()
+    plt.close()
 
     mean_loss = float(np.mean(fold_losses))
     std_loss  = float(np.std(fold_losses))
