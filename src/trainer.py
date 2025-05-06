@@ -16,17 +16,19 @@ def cross_validate(
     dim_exp: int,
     dim_imp: int,
     dim_cty: int,
-    k_splits: int = 9,
+    k_splits: int = 5,
     batch_size: int = 1024,
     lr: float = 1e-3,
-    epochs: int = 20,
+    epochs: int = 200,
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 ) -> Tuple[float, float, float, float]:
     kfold = KFold(n_splits=k_splits, shuffle=True, random_state=42)
     fold_losses = []
     fold_r2s = []
+    all_fold_y = []  # store all y values for each fold
+    all_fold_preds = [] # store all predictions for each fold
 
-    for _, (train_idx, val_idx) in enumerate(kfold.split(dataset), 1):
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(dataset), 1): #_
         train_loader = DataLoader(Subset(dataset, train_idx), batch_size=batch_size, shuffle=True, num_workers=4)
         val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size, shuffle=False, num_workers=4)
 
@@ -64,7 +66,8 @@ def cross_validate(
         val_loss /= len(val_idx)
         fold_losses.append(val_loss)
         fold_r2s.append(r2_metric.compute())
-
+        print(f"K-Fold {fold} result: (val_loss: {val_loss:.4f}, r2: {r2_metric.compute().item():.4f})")#_
+    
     #print MSE
     plt.figure(figsize=(12, 5))
     plt.subplot(1, 2, 1)
@@ -85,6 +88,18 @@ def cross_validate(
     plt.grid(True)
     plt.legend()
     
+    #plot all y and preds for each fold
+    plt.subplot(1, 3, 3)
+    for i in range(k_splits):
+        plt.scatter(all_fold_y[i], all_fold_preds[i], alpha=0.5, s=10, label=f'Fold {i+1}')
+    plt.plot([min(np.concatenate(all_fold_y)), max(np.concatenate(all_fold_y))], 
+             [min(np.concatenate(all_fold_y)), max(np.concatenate(all_fold_y))], 'r--', lw=2, label='Ideal')
+    plt.title('True vs Predicted Values Across Folds')
+    plt.xlabel('True Values')
+    plt.ylabel('Predicted Values')
+    plt.grid(True)
+    plt.legend()
+
     plt.tight_layout()
     plt.show()
     plt.close()
