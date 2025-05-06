@@ -34,7 +34,7 @@ def main() -> None:
         trd_feats = trade_feats
     )
 
-    mean_mse, std_mse = cross_validate(
+    mean_mse, std_mse,mean_r2, std_r2 = cross_validate(
         dataset = dataset,
         hs_map_size = len(dataset.hs_map),
         yr_map_size = len(dataset.year_map),
@@ -45,6 +45,6 @@ def main() -> None:
     )
 
     print(f"average validation MSE: {mean_mse:.4f} ± {std_mse:.4f}")
-
+    print(f"average validation R²: {mean_r2:.4f} ± {std_r2:.4f}")
 if __name__ == '__main__':
     main()
