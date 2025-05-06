@@ -1,6 +1,6 @@
 from typing import List
-from src.data_utils import load_maps, TradeDataset
-from src.trainer import cross_validate
+from data_utils import load_maps, TradeDataset
+from trainer import cross_validate
 
 
 def main() -> None:
@@ -37,7 +37,7 @@ def main() -> None:
     mean_mse, std_mse,mean_r2, std_r2 = cross_validate(
         dataset = dataset,
         hs_map_size = len(dataset.hs_map),
-        yr_map_size = len(dataset.year_map),
+        #yr_map_size = len(dataset.year_map),
         dim_trade = len(trade_feats),
         dim_exp = next(iter(exporter_map.values())).shape[0],
         dim_imp = next(iter(importer_map.values())).shape[0],
