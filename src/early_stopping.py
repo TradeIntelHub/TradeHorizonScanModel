@@ -6,6 +6,7 @@ class EarlyStopping:
         self.early_stop = False
         self.counter = 0
         self.best_model_state = None
+        self.is_this_best_so_far = False
 
     def __call__(self, val_loss, model):
         score = -val_loss
@@ -20,6 +21,7 @@ class EarlyStopping:
             self.best_score = score
             self.best_model_state = model.state_dict()
             self.counter = 0
+            self.is_this_best_so_far = True
 
     def load_best_model(self, model):
         model.load_state_dict(self.best_model_state)

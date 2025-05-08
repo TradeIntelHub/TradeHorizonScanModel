@@ -44,8 +44,6 @@ dataset = TradeDataset(
     trd_feats = trade_feats
 )
 
-dataset.df = dataset.df.sample(frac=0.1, random_state=7).reset_index(drop=True)
-
 # Loading the model
 lr = 1e-3
 batch_size = 2048
@@ -70,7 +68,7 @@ val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size, shuffle
 
 # Training the model with early stopping
 early_stopping = EarlyStopping(patience=50, delta=0)
-epochs = 5
+epochs = 100
 all_train_losses = []
 all_val_losses = []
 start_time = time.time()
@@ -88,6 +86,8 @@ for epoch in range(epochs):
 
     train_loss /= len(train_loader.dataset)
     all_train_losses.append(train_loss)
+    print(f"Allocated: {torch.cuda.memory_allocated() / 1e6:.1f} MB")
+    print(f"Reserved:  {torch.cuda.memory_reserved() / 1e6:.1f} MB")
     # validation step
     _ = model.eval()
     val_loss = 0
@@ -107,26 +107,30 @@ for epoch in range(epochs):
     'all_val_losses': all_val_losses,
             }, f'../TradeHorizonScan/models/checkpoint{len(all_train_losses)}.pth')
 
-    print(f'Epoch {epoch+1}, Train Loss: {train_loss:.2f}, Val Loss: {val_loss:.2f}')
+    print(f'Epoch {epoch+1}, Train Loss: {train_loss:,.2f}, Val Loss: {val_loss:,.2f}')
     end_time = time.time()
     print(f'Training time so far (epoch: {epoch+1}): {(end_time - start_time)/3600:.2f} hours')
     print(f'Estimated time remaining: {((end_time - start_time)/3600) /(epoch+1) * epochs:.2f} hours')
-    print('=='* 50)
+    
 
     early_stopping = EarlyStopping(val_loss, model)
+    if early_stopping.is_this_best_so_far:
+        torch.save({'epoch': len(all_train_losses),
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'all_train_losses': all_train_losses,
+        'all_val_losses': all_val_losses,
+                }, f'../TradeHorizonScan/models/best_model.pth')
+        print(f'Best model saved at epoch {epoch+1}')
+        
+    print('=='* 50)
     if early_stopping.early_stop:
         print("Early stopping")
-        torch.save({'epoch': len(all_train_losses),
-            'model_state_dict': model.state_dict(),
-            'optimizer_state_dict': optimizer.state_dict(),
-            'all_train_losses': all_train_losses,
-            'all_val_losses': all_val_losses,
-                    }, f'../TradeHorizonScan/models/best_model.pth')
         break
 
 
 
-
+'''
 # Loading the best model
 checkpoint = torch.load('../TradeHorizonScan/models/checkpoint5.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
@@ -135,8 +139,9 @@ optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 all_train_losses = checkpoint['all_train_losses']
 all_val_losses = checkpoint['all_val_losses']
 _ = model.eval()
-# Calculate the R squared value
+'''
 
+# Calculate the R squared value
 r2_metric = R2Score().to(device) 
 with torch.no_grad():
     for h_idx, tx, ex, im, ct, y in val_loader:
