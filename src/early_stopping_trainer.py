@@ -10,6 +10,7 @@ import numpy as np
 import torch
 from src.early_stopping import EarlyStopping
 from sklearn.model_selection import train_test_split
+import time
 
 # Loading the data and maps
 exporter_map, importer_map, country_map = load_maps(
@@ -40,6 +41,8 @@ dataset = TradeDataset(
     trd_feats = trade_feats
 )
 
+dataset.df = dataset.df.sample(frac=0.1, random_state=7).reset_index(drop=True)
+
 # Loading the model
 lr = 1e-3
 batch_size = 2048
@@ -65,6 +68,9 @@ val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size, shuffle
 # Training the model with early stopping
 early_stopping = EarlyStopping(patience=50, delta=0)
 epochs = 20
+all_train_losses = []
+all_val_losses = []
+start_time = time.time()
 for epoch in range(epochs):
     model.train()
     train_loss = 0
@@ -78,6 +84,7 @@ for epoch in range(epochs):
         train_loss += loss.item() * y.size(0)
 
     train_loss /= len(train_loader.dataset)
+    all_train_losses.append(train_loss)
     # validation step
     model.eval()
     val_loss = 0
@@ -88,12 +95,36 @@ for epoch in range(epochs):
             loss = criterion(preds, y)
             val_loss += loss.item() * y.size(0)
     val_loss /= len(val_loader.dataset) 
+    all_val_losses.append(val_loss)
+
+    torch.save({'epoch': len(all_train_losses),
+    'model_state_dict': model.state_dict(),
+    'optimizer_state_dict': optimizer.state_dict(),
+    'all_train_losses': all_train_losses,
+    'all_val_losses': all_val_losses,
+            }, f'../TradeHorizonScan/models/checkpoint{len(all_train_losses)}.pth')
 
     print(f'Epoch {epoch+1}, Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}')
+    end_time = time.time()
+    print(f'Training time so far (epoch: {epoch+1}): {(end_time - start_time)/3600:.2f} hours')
+    print(f'Estimated time remaining: {((end_time - start_time)/3600) /(epoch+1) * epochs:.2f} hours')
+    print('=='* 50)
 
     early_stopping = EarlyStopping(val_loss, model)
     if early_stopping.early_stop:
         print("Early stopping")
+        torch.save({'epoch': len(all_train_losses),
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'all_train_losses': all_train_losses,
+            'all_val_losses': all_val_losses,
+                    }, f'../TradeHorizonScan/models/best_model.pth')
         break
 
 early_stopping.load_best_model(model)
+
+
+# Add timer
+# Save models
+# Make sure it works
+# Priting the plots
