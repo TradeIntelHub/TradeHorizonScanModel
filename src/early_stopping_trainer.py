@@ -66,11 +66,14 @@ val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size, shuffle
 
 
 
-# Training the model with early stopping
+# Setting the final training parameters
 early_stopping = EarlyStopping(patience=50, delta=0)
 epochs = 100
 all_train_losses = []
 all_val_losses = []
+
+
+# Training the model
 start_time = time.time()
 for epoch in range(epochs):
     _ = model.train()
@@ -110,7 +113,7 @@ for epoch in range(epochs):
     print(f'Epoch {epoch+1}, Train Loss: {train_loss:,.2f}, Val Loss: {val_loss:,.2f}')
     end_time = time.time()
     print(f'Training time so far (epoch: {epoch+1}): {(end_time - start_time)/3600:.2f} hours')
-    print(f'Estimated time remaining: {((end_time - start_time)/3600) /(epoch+1) * epochs:.2f} hours')
+    print(f'Estimated time remaining: {((end_time - start_time)/3600) /(epoch+1) * (epochs - epoch - 1):.2f} hours')
     
 
     early_stopping = EarlyStopping(val_loss, model)
