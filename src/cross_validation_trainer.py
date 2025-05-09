@@ -1,4 +1,4 @@
-<<<<<<< HEAD:src/trainer.py
+
 from typing import Tuple
 import numpy as np
 import matplotlib.pyplot as plt
@@ -62,22 +62,22 @@ def cross_validate(
         r2_metric = R2Score().to(device) 
         model.eval()
         with torch.no_grad():
-            #fold_y = []
-            #fold_preds = [] # store y and preds for each fold in temporary list
+            fold_y = []
+            fold_preds = [] # store y and preds for each fold in temporary list
             for h_idx, tx, ex, im, ct, y in val_loader:#remove y_idx to match with the model
                 h_idx, tx, ex, im, ct, y = [t.to(device) for t in (h_idx, tx,ex,im,ct,y)]#remove y_idx to match with the model
                 preds = model(h_idx, tx, ex, im, ct)
                 _ = r2_metric.update(preds, y)
                 val_loss += criterion(preds, y).item() * y.size(0)
-                #fold_y.append(y.cpu().numpy())  # colect y values for each fold
-                #fold_preds.append(preds.cpu().numpy()) #collect preds for each fold
+                fold_y.append(y.cpu().numpy())  # colect y values for each fold
+                fold_preds.append(preds.cpu().numpy()) #collect preds for each fold
         val_loss /= len(val_idx)
         fold_losses.append(val_loss)
         fold_r2s.append(r2_metric.compute())
-        #fold_y = np.concatenate(fold_y, axis=0)  # 
-        #fold_preds = np.concatenate(fold_preds, axis=0)  # collect all y and preds for each fold
-        #all_fold_y.append(fold_y)  # store y values in all_fold_y  for each fold
-        #all_fold_preds.append(fold_preds) # store preds in all_fold_preds for each fold
+        fold_y = np.concatenate(fold_y, axis=0)  
+        fold_preds = np.concatenate(fold_preds, axis=0)  # collect all y and preds for each fold
+        all_fold_y.append(fold_y)  # store y values in all_fold_y  for each fold
+        all_fold_preds.append(fold_preds) # store preds in all_fold_preds for each fold
         print(f"K-Fold {fold} result: (val_loss: {val_loss:.4f}, r2: {r2_metric.compute().item():.4f})")# print the result of each fold
     
     
@@ -124,9 +124,9 @@ def cross_validate(
     for i in range(k_splits):
         actual = all_fold_y[i]
         predicted = all_fold_preds[i]
-        ape = np.abs((actual - predicted) / (actual + 1e-10)) * 100  # 加 1e-10 避免除零
-        mape = np.mean(ape)
-        fold_apes.append(ape)  # 存储每个折的 APE 数组
+        ape = np.abs((actual - predicted) / (actual + 1e-10)) * 100  #use 1e-10 to avoid division by zero
+        mape = np.mean(ape) # store ape for each fold
+        fold_apes.append(ape)  
         fold_mapes.append(mape)
         print(f"Fold {i+1} MAPE: {mape:.2f}%")
 
