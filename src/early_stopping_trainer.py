@@ -68,7 +68,7 @@ val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size, shuffle
 
 # Setting the final training parameters
 early_stopping = EarlyStopping(patience=50, delta=0)
-epochs = 100
+epochs = 26
 all_train_losses = []
 all_val_losses = []
 
@@ -116,7 +116,7 @@ for epoch in range(epochs):
     print(f'Estimated time remaining: {((end_time - start_time)/3600) /(epoch+1) * (epochs - epoch - 1):.2f} hours')
     
 
-    early_stopping = EarlyStopping(val_loss, model)
+    early_stopping(val_loss, model, all_val_losses)
     if early_stopping.is_this_best_so_far:
         torch.save({'epoch': len(all_train_losses),
         'model_state_dict': model.state_dict(),
@@ -133,9 +133,10 @@ for epoch in range(epochs):
 
 
 
+
 '''
 # Loading the best model
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint5.pth')
+checkpoint = torch.load('../TradeHorizonScan/models/checkpoint300.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -146,15 +147,19 @@ _ = model.eval()
 
 # Calculate the R squared value
 r2_metric = R2Score().to(device) 
+actuals = []
+predictions = []
 with torch.no_grad():
     for h_idx, tx, ex, im, ct, y in val_loader:
         h_idx, tx, ex, im, ct, y = [t.to(device) for t in (h_idx, tx, ex, im, ct, y)]
         preds = model(h_idx, tx, ex, im, ct)
+        actuals.extend(y.cpu().numpy())
+        predictions.extend(preds.cpu().numpy())
         _ = r2_metric.update(preds, y)
 r2 = r2_metric.compute()
 print(f"R-squared: {r2.item():.2f}")
 
-
+all_val_losses[164]**0.5
 
 # Plotting the training and validation loss
 fig = go.Figure()
@@ -165,7 +170,7 @@ fig.add_trace(go.Scatter(
     name='Training Loss',
     marker=dict(size=8, symbol='circle'),
     line=dict(width=2, color='#1f77b4'),
-    hovertemplate='Epoch: %{x}<br>Loss: %{y:.2f}<extra></extra>'
+    hovertemplate='Epoch: %{x}<br>Loss: %{y:,.0f}<extra></extra>'
 ))
 fig.add_trace(go.Scatter(
     x=list(range(1, len(all_val_losses) + 1)), 
@@ -174,7 +179,19 @@ fig.add_trace(go.Scatter(
     name='Validation Loss',
     marker=dict(size=8, symbol='diamond'),
     line=dict(width=2, color='#ff7f0e', dash='dash'),
-    hovertemplate='Epoch: %{x}<br>Loss: %{y:.2f}<extra></extra>'
+    hovertemplate='Epoch: %{x}<br>Loss: %{y:,.0f}<extra></extra>'
+))
+fig.add_trace(go.Scatter(
+    x=list(range(1, len(all_val_losses) + 1)), 
+    y=np.array(all_val_losses) * 0.2 + np.array(all_train_losses) * 0.8,
+    mode='lines+markers',
+    name='Total Loss',
+    marker=dict(
+        size=8,
+        symbol='circle',         # ← try 'circle', 'x', 'triangle-up', 'cross', etc.
+        color='mediumblue',    # ← marker color
+        line=dict(width=1, color='black')  # optional outline for visibility
+    )
 ))
 fig.update_layout(
     template='plotly_white',
@@ -201,7 +218,8 @@ fig.update_layout(
         gridwidth=1,
         gridcolor='#E5E5E5',
         zeroline=False,
-        dtick=1
+        dtick=10,
+        range=[-9, None] 
     ),
     yaxis=dict(
         title='Loss',
@@ -209,7 +227,7 @@ fig.update_layout(
         showgrid=True,
         gridwidth=1,
         gridcolor='#E5E5E5',
-        zeroline=False
+        zeroline=True
     ),
     width=1200,
     height=700,
@@ -221,9 +239,69 @@ fig.update_layout(
             xref='paper',
             yref='paper',
             x=0.5,
-            y=-0.12,
+            y=-0.13,
             font=dict(size=12)
         )
     ]
 )
 fig.show()
+
+
+# Scatter plot of actual vs predicted values
+min_val = min(min(actuals), min(predictions))
+max_val = max(max(actuals), max(predictions))
+fig = px.scatter(
+    x=actuals,
+    y=predictions,
+    labels={'x': 'Actual Values', 'y': 'Predicted Values'},
+    template='plotly_white'
+)
+fig.update_traces(
+    marker=dict(size=5, opacity=0.7, line=dict(width=1, color='DarkSlateGrey')),
+    hovertemplate='Actual: %{x}<br>Predicted: %{y}<extra></extra>'
+)
+fig.add_trace(go.Scatter(
+    x=[min_val, max_val],
+    y=[min_val, max_val],
+    mode='lines',
+    line=dict(color='gray', dash='dash'),
+    showlegend=False
+))
+font_style = dict(family='Arial', size=14, color='#333333')
+fig.update_layout(
+    xaxis=dict(
+        title='Actual Values',
+        showgrid=True,
+        gridcolor='#E5E5E5',
+        zeroline=True,
+        range=[0, max(actuals) * 1.05],     # 👈 keep this here
+        scaleanchor="y",
+        scaleratio=1
+    ),
+    yaxis=dict(
+        title='Predicted Values',
+        showgrid=True,
+        gridcolor='#E5E5E5',
+        zeroline=False,
+        range=[0, max(predictions) * 1.05]
+    ),
+    title={
+        'text': 'Actual vs Predicted Values',
+        'font': {'size': 24, 'family': 'Arial', 'color': '#333333'},
+        'y': 0.95,
+        'x': 0.5,
+        'xanchor': 'center',
+        'yanchor': 'top'
+    },
+    font=dict(family='Arial', size=14, color='#333333'),
+    width=1200,
+    height=700,
+    margin=dict(l=80, r=80, t=100, b=80)
+)
+
+
+fig.update_layout(
+    xaxis=dict(scaleanchor="y", scaleratio=1)
+)
+fig.show()
+

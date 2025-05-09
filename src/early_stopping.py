@@ -8,8 +8,9 @@ class EarlyStopping:
         self.best_model_state = None
         self.is_this_best_so_far = False
 
-    def __call__(self, val_loss, model):
+    def __call__(self, val_loss, model, all_val_losses):
         score = -val_loss
+        self.best_score = min(all_val_losses)
         if self.best_score is None:
             self.best_score = score
             self.best_model_state = model.state_dict()
