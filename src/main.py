@@ -1,6 +1,6 @@
 from typing import List
 from data_utils import load_maps, TradeDataset
-from trainer import cross_validate
+from cross_validation_trainer import cross_validate
 
 
 def main() -> None:
@@ -34,7 +34,7 @@ def main() -> None:
         trd_feats = trade_feats
     )
 
-    mean_mse, std_mse,mean_r2, std_r2 = cross_validate(
+    mean_mse, std_mse,mean_r2, std_r2,all_fold_apes = cross_validate(
         dataset = dataset,
         hs_map_size = len(dataset.hs_map),
         #yr_map_size = len(dataset.year_map),
@@ -43,8 +43,10 @@ def main() -> None:
         dim_imp = next(iter(importer_map.values())).shape[0],
         dim_cty = next(iter(country_map.values())).shape[0]
     )
-
+    print(f"MSE: {mean_mse}, {std_mse}")
+    print(f"R²: {mean_r2}, {std_r2}")
     print(f"average validation MSE: {mean_mse:.4f} ± {std_mse:.4f}")
     print(f"average validation R²: {mean_r2:.4f} ± {std_r2:.4f}")
+    print(f"Each Fold's MAPE values: {[ape.mean().round(2) for ape in all_fold_apes]}")
 if __name__ == '__main__':
     main()
