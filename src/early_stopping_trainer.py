@@ -136,7 +136,7 @@ for epoch in range(epochs):
 
 '''
 # Loading the best model
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint300.pth')
+checkpoint = torch.load('../TradeHorizonScan/models/checkpoint165.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -159,7 +159,7 @@ with torch.no_grad():
 r2 = r2_metric.compute()
 print(f"R-squared: {r2.item():.2f}")
 
-all_val_losses[164]**0.5
+
 
 # Plotting the training and validation loss
 fig = go.Figure()
@@ -298,10 +298,54 @@ fig.update_layout(
     height=700,
     margin=dict(l=80, r=80, t=100, b=80)
 )
-
-
 fig.update_layout(
     xaxis=dict(scaleanchor="y", scaleratio=1)
 )
 fig.show()
 
+
+# MAPE analysis
+x = []
+y = []
+quantiles = [0, 0.25, 0.5, 0.75, 1]
+quantiles = np.arange(0, 1.1, 0.1)
+for j, i in enumerate(quantiles[1:]):
+    q = np.quantile(actuals, i)
+    print(f'Quantile {i}')
+    if i == quantiles[1]:
+        predictions_q = np.array(predictions)[(np.array(actuals) <= q) ]
+        actuals_q = np.array(actuals)[(np.array(actuals) <= q) ]
+    elif i == quantiles[-1]:
+        predictions_q = np.array(predictions)[(np.array(actuals) > actuals_q.max()) ]
+        actuals_q = np.array(actuals)[(np.array(actuals) > actuals_q.max()) ]
+    else:
+        predictions_q = np.array(predictions)[(np.array(actuals) <= q) & (np.array(actuals) > actuals_q.max()) ]
+        actuals_q = np.array(actuals)[(np.array(actuals) <= q) & (np.array(actuals) > actuals_q.max()) ]
+
+    mape_q = np.mean(np.abs((predictions_q - actuals_q) / actuals_q)) * 100
+    x.append((actuals_q.min(), actuals_q.max()))
+    y.append(mape_q)
+    print(f'MAPE for {j+1}th quantile: Min Trade Value: {actuals_q.min():,.2f}')
+    print(f'MAPE for {j+1}th quantile: Median Trade Value: {np.median(actuals_q):,.2f}')
+    print(f'MAPE for {j+1}th quantile: Mean Trade Value: {actuals_q.mean():,.2f}')
+    print(f'MAPE for {j+1}th quantile: Max Trade Value: {actuals_q.max():,.2f}')
+    print(f'MAPE for {j+1}th quantile: {mape_q:,.2f}%')
+    print('=='*50)
+
+bars = [{"x_start": quantiles[i], "x_end": quantiles[i+1], "height": y[i]} for i in range(len(x))]
+fig = go.Figure()
+for bar in bars:
+    fig.add_shape(
+        type="rect",
+        x0=bar["x_start"], x1=bar["x_end"],
+        y0=0, y1=bar["height"],
+        line=dict(color="black"),
+        fillcolor="royalblue",
+    )
+fig.update_layout(
+    title="Custom Bar Chart with Start/End Positions",
+    xaxis=dict(range=[quantiles[0]-0.2, quantiles[-1]+0.2], title="X"),
+    yaxis=dict(range=[0, np.array(y).max()+5], title="Height"),
+    showlegend=False
+)
+fig.show()
