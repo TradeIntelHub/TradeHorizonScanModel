@@ -70,14 +70,17 @@ if __name__ == '__main__':
 #plot
 #plot the loss in rmse
 fold_losses = all_the_results["fold_losses"]
-rmse = np.sqrt(fold_losses) #calculate RMSE
+rmse = np.sqrt(fold_losses)
+scale_factor_1 = 1e3 # 1 thousand
+rmse_scaled = rmse / scale_factor_1 
+
 plt.figure(figsize=(12, 5))
 plt.subplot(1, 2, 1)
 folds = list(range(1, len(fold_losses) + 1))
-plt.plot(folds, rmse, marker='o', linestyle='-', color='b', label='Validation Loss')
+plt.plot(folds, rmse_scaled, marker='o', linestyle='-', color='b', label='Validation Loss')
 plt.title('Validation Loss (MSE) Across Folds')
 plt.xlabel('Fold')
-plt.ylabel('Root Mean Squared Error (RMSE)')
+plt.ylabel('Root Mean Squared Error (RMSE) (thousands)')
 plt.xticks(folds, [int(f) for f in folds])
 plt.grid(True)
 plt.legend()
@@ -95,7 +98,7 @@ plt.grid(True)
 plt.legend()
 
 plt.tight_layout()
-#plt.savefig('mse_r2_plot.png')   
+plt.savefig('rmse_r2_plot.png')   
 plt.show() 
 
 
