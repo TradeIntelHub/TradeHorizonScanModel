@@ -49,14 +49,6 @@ def Alberta_to_CEPII(Alberta,Canada , CEPII):
     Alberta_df.rename(columns={'adjusted_v': 'v', 'adjusted_q': 'q'}, inplace=True)
     return Alberta_df
 
-
-
-
-
-
-
-
-
 for year in range(2013, 2024):
     print(year)
     exports = pd.read_sql(f"SELECT * FROM dbo.statCanExportDataMonthly{year}", conn)
@@ -91,6 +83,6 @@ for year in range(2013, 2024):
     Alberta = Alberta.loc[:, CEPII.columns]
     CEPII2 = pd.concat([CEPII, Alberta], ignore_index=True)
     print(f'for the year {year} the number of rows in the CEPII data increased from {CEPII.shape[0]:,} to {CEPII2.shape[0]:,}')
-    CEPII2.to_csv(f'../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y{year}_V202501.csv', index=False)
+    CEPII2.to_csv(f'../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y{year}_V202501_alberta.csv', index=False)
 
 
