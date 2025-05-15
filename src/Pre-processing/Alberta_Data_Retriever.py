@@ -19,6 +19,44 @@ Country_codes = Country_codes.drop_duplicates(subset=['ctyCode'], keep='first')
 # SO Here for each ctyCode I pick the first available UNComTradeCtyId
 # And drop the rest to prevfent double accounting
 
+
+def Alberta_to_CEPII(Alberta,Canada , CEPII):
+    # This function will return the Alberta data adjusted for the CEPII methodology
+    # By calculating Alberta(Statscan) Q an  V using the proportion of Canada_CEPII/StatsCan_Canada Q and V
+    Canada_CEPII = CEPII.loc[CEPII['i'] == 124].reset_index(drop=True) #Exporter is Canada
+    Country_map = pd.read_sql("SELECT * FROM dbo.countryCodesDescriptionStatCanUNComTradeUSCensusBureau", conn)
+    Country_map = Country_map.loc[:, ['ctyCode', 'UNComTradeCtyId']]
+    Canada_CEPII = pd.merge(Canada_CEPII, Country_map, how='left', left_on='j', right_on='UNComTradeCtyId')
+    Canada_CEPII.drop(columns=['UNComTradeCtyId'], inplace=True)
+    Canada_CEPII = Canada_CEPII.groupby(['t', 'i', 'ctyCode', 'k'])[['v', 'q']].sum().reset_index()
+    Canada_CEPII.rename(columns={'v': 'canada_cepii_v', 'q': 'canada_cepii_q'}, inplace=True)
+    Alberta_df = pd.merge(Alberta, Country_map, how='left', left_on='j', right_on='UNComTradeCtyId')
+    Alberta_df.drop(columns=['UNComTradeCtyId'], inplace=True)
+    Alberta_df.rename(columns={'v': 'alberta_v', 'q': 'alberta_q'}, inplace=True)
+    assert Alberta_df.duplicated(subset=['ctyCode', 'k']).sum() == 0, "There are duplicates in the Alberta data"
+    Canada_df = pd.merge(Canada, Country_map, how='left', left_on='j', right_on='UNComTradeCtyId')
+    Canada_df.drop(columns=['UNComTradeCtyId'], inplace=True)
+    Canada_df.rename(columns={'v': 'canada_v', 'q': 'canada_q'}, inplace=True)
+    assert Canada_df.duplicated(subset=['ctyCode', 'k']).sum() == 0, "There are duplicates in the Alberta data"
+    Alberta_df = pd.merge(Alberta_df, Canada_df[['canada_v', 'canada_q', 'ctyCode', 'k']], how='left', on=['ctyCode', 'k'])
+    Alberta_df = pd.merge(Alberta_df, Canada_CEPII[['canada_cepii_v', 'canada_cepii_q', 'ctyCode', 'k']], how='left', on=['ctyCode', 'k'])
+
+    Alberta_df['adjusted_v'] = Alberta_df['alberta_v'] * (Alberta_df['canada_v']/Alberta_df['canada_cepii_v'])
+    Alberta_df['adjusted_q'] = Alberta_df['alberta_q'] * (Alberta_df['canada_q']/Alberta_df['canada_cepii_q'])
+    Alberta_df['adjusted_v'] = Alberta_df['adjusted_v'].fillna(Alberta_df['alberta_v'])
+    Alberta_df['adjusted_q'] = Alberta_df['adjusted_q'].fillna(Alberta_df['alberta_q'])
+    Alberta_df = Alberta_df.loc[:, ['t', 'i','j', 'k', 'adjusted_v', 'adjusted_q']]
+    Alberta_df.rename(columns={'adjusted_v': 'v', 'adjusted_q': 'q'}, inplace=True)
+    return Alberta_df
+
+
+
+
+
+
+
+
+
 for year in range(2013, 2024):
     print(year)
     exports = pd.read_sql(f"SELECT * FROM dbo.statCanExportDataMonthly{year}", conn)
@@ -41,15 +79,18 @@ for year in range(2013, 2024):
 
     
     CEPII = pd.read_csv(f'../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y{year}_V202501.csv')
-    # Transform the Value and Quantity columns to match the CEPII calculations
+    
 
     # CEPII values are in thousands of dollars, so we need to divide by 1000
     Alberta['v'] = Alberta['v'] / 1000
-    Canada['v'] = Canada['v'] / 1000    
+    Canada['v'] = Canada['v'] / 1000
+    # Transform the Value and Quantity columns to match the CEPII calculations
 
 
-
-
+    Alberta = Alberta_to_CEPII(Alberta, Canada, CEPII)
     Alberta = Alberta.loc[:, CEPII.columns]
-    Canada = Canada.loc[:, CEPII.columns]
-    CEPII = pd.concat([CEPII, Alberta], ignore_index=True)
+    CEPII2 = pd.concat([CEPII, Alberta], ignore_index=True)
+    print(f'for the year {year} the number of rows in the CEPII data increased from {CEPII.shape[0]:,} to {CEPII2.shape[0]:,}')
+    CEPII2.to_csv(f'../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y{year}_V202501.csv', index=False)
+
+
