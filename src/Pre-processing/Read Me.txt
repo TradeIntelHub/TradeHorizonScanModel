@@ -1,3 +1,8 @@
+0- Alberta_Data_Retriever.py
+	0.1 Donwloads Alberta and Canada Trade Data from StatCan
+	0.2 Adjusts Alberta trade data based on the proportion of the Canada trade data based on CEPII to StatCan
+	0.3 Adds the Alberta trade data with code 9999 to the CEPII files
+
 1- Process_CEPII.jl
 	1.1 Reads BACI files. Calculates desired variables like TotalExportofCmdbyPartner, TotalExportbyPartner, WorldExportofCmd, WorldTotalExport, 	AvgUnitPriceofExporterToWorld, ...
 	1.2 Calculate the related measures like Theil Concentration Index, RCA, Trade_Complementarity
