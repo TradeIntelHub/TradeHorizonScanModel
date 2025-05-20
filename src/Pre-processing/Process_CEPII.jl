@@ -8,9 +8,10 @@ starting_year = 2013
 
 
 #df = DataFrame(CSV.File("BACI_HS12_Y2012_V202501.csv"))
-pattern = r"\_(?P<HSType>.{4})\_Y(?P<Year>\d{4})\_(?P<VintagePoint>.*)\.(?P<FileFormat>.*)"
+pattern = r"\_(?P<HSType>.{4})\_Y(?P<Year>\d{4})\_(?P<VintagePoint>.*)\_(?P<Alberta_Included>.*)\.(?P<FileFormat>.*)"
 file_names = match.(pattern, readdir())
-file_names = filter(x ->  parse(Int, x["Year"]) >= starting_year && x["HSType"] == "HS12" && x["FileFormat"] == "csv", file_names)
+file_names = filter(!isnothing, file_names)
+file_names = filter(x ->  parse(Int, x["Year"]) >= starting_year && x["Alberta_Included"] == "alberta" && x["HSType"] == "HS12" && x["FileFormat"] == "csv", file_names)
 dfs = [DataFrame(CSV.File("BACI"*file_name.match)) for file_name in file_names]
 df = vcat(dfs...)
 df = unique(df)
@@ -164,8 +165,11 @@ select!(Trade_data5, [:year, :importer, :exporter, :hsCode, :value, :AvgUnitPric
                         :AvgUnitPriceofImporterFromWorld,:TotalImportofCmdbyReporter,:AvgUnitPriceofExporterToWorld, :TotalExportofCmdbyPartner,  :Partner_Revealed_Comparative_Advantage, 
                                     :Theil_Exporter_Concentration, :Theil_Importer_Concentration, :Trade_Complementarity]);
 
-# Saving the data
 
+Trade_data5
+
+                                
+# Saving the data
 CSV.write("..//1- CEPII_Processed_HS4_$(starting_year)_2023.csv", Trade_data5, writeheader = true)
 
 
