@@ -22,7 +22,7 @@ def cross_validate(
     k_splits: int = 5 ,
     batch_size: int = 2048, 
     lr: float = 1e-3,
-    epochs: int = 5,#200,
+    epochs: int = 200,
     device: torch.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 ): 
     global all_the_results
@@ -117,15 +117,8 @@ def cross_validate(
     std_mse  = float(np.std(fold_losses)) #std_loss
     mean_r2 = float(np.mean(fold_r2s))
     std_r2 = float(np.std(fold_r2s))
-    fold_mapes = [] #mean ape for each fold
-    for i, apes in enumerate(all_fold_apes):
-        if len(apes) > 0:
-            mape = np.mean(apes)
-            fold_mapes.append(mape)
-        else:
-            fold_mapes.append(np.nan)
-    mean_mape = np.nanmean(fold_mapes)
-    print(f" MAPE of this Model: {mean_mape:.2f}%")
+
+
     #store in to golbal dictionary
     all_the_results["all_y"] = all_y
     all_the_results["all_preds"] = all_preds
@@ -134,8 +127,6 @@ def cross_validate(
     all_the_results["mean_r2"] = mean_r2
     all_the_results["std_r2"] = std_r2
     all_the_results["all_fold_apes"] = all_fold_apes
-    all_the_results["fold_mapes"] = fold_mapes
-    all_the_results["mean_mape"] = mean_mape
     all_the_results["fold_losses"] = fold_losses
     all_the_results["fold_r2s"] = fold_r2s
     print("All the results:", all_the_results)

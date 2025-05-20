@@ -38,9 +38,7 @@ def main() -> None:
         cty_map = country_map,
         trd_feats = trade_feats
     )
-
-
-    dataset.df = dataset.df.sample(frac=0.001, random_state=42).reset_index(drop=True)
+    #dataset.df = dataset.df.sample(frac=0.001, random_state=42).reset_index(drop=True)
     print(f"Dataset created, size: {len(dataset)}")
 
     cross_validate(
@@ -67,52 +65,18 @@ def main() -> None:
 if __name__ == '__main__':
     main()
 
-#plot
-#plot the loss in rmse
-fold_losses = all_the_results["fold_losses"]
-rmse = np.sqrt(fold_losses)
-scale_factor_1 = 1e3 # 1 thousand
-rmse_scaled = rmse / scale_factor_1 
-
-plt.figure(figsize=(12, 5))
-plt.subplot(1, 2, 1)
-folds = list(range(1, len(fold_losses) + 1))
-plt.plot(folds, rmse_scaled, marker='o', linestyle='-', color='b', label='Validation Loss')
-plt.title('Validation Loss (MSE) Across Folds')
-plt.xlabel('Fold')
-plt.ylabel('Root Mean Squared Error (RMSE) (thousands)')
-plt.xticks(folds, [int(f) for f in folds])
-plt.grid(True)
-plt.legend()
-
-# Print R² Score
-fold_r2s = all_the_results["fold_r2s"]
-
-plt.subplot(1, 2, 2)
-plt.plot(folds, fold_r2s, marker='o', linestyle='-', color='g', label='R² Score')
-plt.title('R² Score Across Folds')
-plt.xlabel('Fold')
-plt.ylabel('R² Score')
-plt.xticks(folds, [int(f) for f in folds])
-plt.grid(True)
-plt.legend()
-
-plt.tight_layout()
-plt.savefig('rmse_r2_plot.png')   
-plt.show() 
-
-
+#scatter plot
 #plot all y and preds 
-all_y = all_the_results["all_y"]
-all_preds = all_the_results["all_preds"]
+actuals = all_the_results["all_y"]
+predictions = all_the_results["all_preds"]
 scale_factor = 1e6  # 1 million
-all_y_scaled = all_y / scale_factor
-all_preds_scaled = all_preds / scale_factor
+actuals_scaled = actuals / scale_factor
+predictions_scaled = predictions / scale_factor
 
 
 plt.figure(figsize=(6, 5))
-plt.scatter(all_y_scaled, all_preds_scaled, alpha=0.5, s=10, label='Predicted vs True')
-plt.plot([min(all_y_scaled), max(all_y_scaled)], [min(all_y_scaled), max(all_y_scaled)], 'r--', lw=2, label='Ideal')
+plt.scatter(actuals_scaled, predictions_scaled, alpha=0.5, s=10, label='Predicted vs True')
+plt.plot([min(actuals_scaled), max(actuals_scaled)], [min(actuals_scaled), max(actuals_scaled)], 'r--', lw=2, label='Ideal')
 plt.title('True vs Predicted Values (All Folds Combined)')
 plt.xlabel('True Values (Millions $)')
 plt.ylabel('Predicted Values (Millions $)')
@@ -123,3 +87,10 @@ plt.tight_layout()
 plt.savefig('true_vs_pred_plot.png')
 
 plt.show() 
+
+
+mean_mse = all_the_results["mean_mse"]
+std_mse = all_the_results["std_mse"]
+std_rmse= np.sqrt(std_mse)
+mean_rmse = np.sqrt(mean_mse)
+print(f"RMSE: {mean_rmse:.4f}, {std_rmse:.4f}")
