@@ -12,7 +12,7 @@ data = pd.read_csv("3- Diversification_Project_Preprocessed.csv", low_memory=Fal
 data.sort_values(by=['importer', 'exporter', 'hsCode', 'year'], inplace=True)
 data.reset_index()
 a = data.loc[data.year>=2015]
-print(f'Number of Nan values before the transformation: {a.isna().sum().sum()} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1])} %')
+print(f'Number of Nan values before the transformation: {a.isna().sum().sum():,} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1]):.2f} %')
 
 
 
@@ -98,7 +98,7 @@ data.sort_values(by=['importer', 'exporter', 'hsCode', 'year'], inplace=True)
 
 #data = data.loc[data.year>=2015]
 a = data.loc[data.year>=2015]
-print(f'Number of Nan values before the transformation: {a.isna().sum().sum()} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1])} %')
+print(f'Number of Nan values before the transformation: {a.isna().sum().sum():,} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1]):.2f} %')
 
 
 # I will replace nan values in UnitPrice columnS with 0s and add a new columns called UnitPriceFlags to indicate the rows that were replaced
@@ -127,8 +127,11 @@ data['MA_AvgUnitPriceofExporterToWorld'] = data['MA_AvgUnitPriceofExporterToWorl
 # 2020, 2021, and 2022 are flagged as Covid years
 data['Covid'] = np.where(data['year'].isin([2020, 2021, 2022]), True, False)
 
-data = data.round(3)
 
+# Rounding the values to 3 decimal places
+data = data.round(3)
+# Only keeping the after 2015 data
+data = data.loc[data.year>=2015]
 
 # Saving the output files
 trade_col = ['hsCode', 'year', 'importer', 'exporter', 'value', 'AvgUnitPrice','AvgUnitPriceFlags', 'AvgUnitPriceofImporterFromWorld','AvgUnitPriceofImporterFromWorldFlags', 'TotalImportofCmdbyReporter',
@@ -161,18 +164,24 @@ MA_country = data[MA_country_col].drop_duplicates()
 country.to_csv("output\\Country.csv", index=False)
 MA_country.to_csv("output\\MA_Country.csv", index=False)
 
+
+
+col = set(MA_country + MA_importer + MA_exporter + MA_trade)
+a = data.loc[data.year>=2015, list(col)]
+print(f'Number of Nan values after the transformation: {a.isna().sum().sum():,} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1]):.2f} %')
+
+
 # Visualizing Total Trade Value Over Time
 # We are marking the Covid years but no fixed year effect for now!
 df  = data.groupby('year')['value'].sum().reset_index()
 df2  = data.loc[data.hsCode!=2709].groupby('year')['value'].sum().reset_index()
 df.columns = ['year', 'value']
 df2.columns = ['year', 'value']
-fig = px.line(df, x='year', y='value', title='Total Trade Value Over Time')
+fig = px.line(df, x='year', y='value', title='Total Trade Value (3-year MA) Over Time')
 fig.add_scatter(x=df2['year'], y=df2['value'], mode='lines+markers', name='Total Trade Excluding oil')
 fig.update_traces(mode='lines+markers')
 fig.update_layout(xaxis_title='Year', yaxis_title='Total Trade Value (in 1,000 USD)')
 fig.show()
-
 
 
 
