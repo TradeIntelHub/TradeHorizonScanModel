@@ -57,7 +57,7 @@ def load_maps(
     def standardize(raw_map: Dict) -> Dict:
         arr = np.stack(list(raw_map.values()), axis=0)
         mean = np.mean(arr, axis=0)
-        std = np.mean(arr, axis=0)
+        std = np.std(arr, axis=0)
         return {k: (v - mean) / std for k, v in raw_map.items()}
 
     exp_map = standardize(raw_exp)
@@ -73,12 +73,26 @@ class TradeDataset(Dataset):
         exp_map: Dict[ExporterKey, np.ndarray],
         imp_map: Dict[ImporterKey, np.ndarray],
         cty_map: Dict[CountryKey, np.ndarray],
-        trd_feats: Sequence[str]
+        trd_feats: Sequence[str],
+        **kwargs
     ) -> None:
+        """
+        Keyword arguments:
+        - inferece_mode: bool: if True, load Alberta data for inference. Default False.
+        - Alberta_path: str: path to Alberta data. Required if inference_mode is True.
+        """
         df = pd.read_csv(
             trd_path,
             usecols=[*['importer', 'exporter', 'hsCode', 'year', 'MA_value'], *trd_feats]
         )
+        self.inference_mode = kwargs.get('inference_mode', False)
+        if self.inference_mode:
+            Alberta_df = pd.read_csv(
+                kwargs['Alberta_path'],
+                usecols=[*['importer', 'exporter', 'hsCode', 'year', 'MA_value'], *trd_feats]
+            )
+            self.Alberta_df = Alberta_df
+            self.Alberta_df = Alberta_df.reset_index(drop=True)
         self.df = df.reset_index(drop=True)
         self.trd_feats = list(trd_feats)
         # compute mean/std for trade features
@@ -100,7 +114,12 @@ class TradeDataset(Dataset):
     def __getitem__(
         self, idx: int
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        row = self.df.iloc[idx]
+        if self.inference_mode:
+            # In inference mode, we use Alberta data
+            row = self.Alberta_df.iloc[idx]
+        else:   
+            row = self.df.iloc[idx]
+
         # embeddings
         h_idx = self.hs_map[row.hsCode]
         # y_idx = self.yr_map[row.year]
