@@ -16,6 +16,11 @@ dfs = [DataFrame(CSV.File("BACI"*file_name.match)) for file_name in file_names]
 df = vcat(dfs...)
 df = unique(df)
 rename!(df, Dict(:t => :year, :i => :exporter, :j => :importer, :k => :hsCode, :v => :value, :q => :quantity))
+
+# Change the quantity to missing values if equal to 0
+# Alberta values have 0s while the rest of the data has missing values
+df.quantity[coalesce.(df.quantity, 0.0) .== 0] .= missing
+
 # Going to HS4 Level:
 df.hsCode = [x[1:4] for x in string.(df.hsCode, base=10, pad=6)]
 df.UnitValueTimesvalue = df.value .* df.value./df.quantity
@@ -50,6 +55,7 @@ Imports, ImportsfromWorld, df, ExportstoWorld = nothing, nothing, nothing, nothi
 
 select!(Trade_data, Not(:UnitValueTimesvalue))
 sort!(Trade_data, [:year, :importer, :exporter, :hsCode])
+
 
 # This function calculates the RCA (Revealed Comparative Advantage)
 # https://unctadstat.unctad.org/EN/RcaRadar.html
