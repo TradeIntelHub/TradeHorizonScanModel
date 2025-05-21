@@ -82,6 +82,7 @@ for year in range(2013, 2024):
 
     Alberta = Alberta_to_CEPII(Alberta, Canada, CEPII)
     Alberta = Alberta.loc[:, CEPII.columns]
+    Alberta['i'] = Alberta.i.replace('Alberta', 9999)
     CEPII2 = pd.concat([CEPII, Alberta], ignore_index=True)
     print(f'for the year {year} the number of rows in the CEPII data increased from {CEPII.shape[0]:,} to {CEPII2.shape[0]:,}')
     CEPII2.to_csv(f'../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y{year}_V202501_alberta.csv', index=False)

@@ -5,8 +5,9 @@ cd(joinpath(@__DIR__, "data"))
 starting_year = 2013
 # I put Alberta as 9999 in the dataset, so that it is not considered as a country
 Trade_data = DataFrame(CSV.File("1- CEPII_Processed_HS4_$(starting_year)_2023.csv"));
-Trade_data.exporter .= ifelse.(Trade_data.exporter .== "Alberta", "9999", Trade_data.exporter);
-Trade_data.exporter = parse.(Int64, Trade_data.exporter);
+#Trade_data.exporter .= ifelse.(Trade_data.exporter .== "Alberta", "9999", Trade_data.exporter);
+#Trade_data.exporter = parse.(Int64, Trade_data.exporter);
+
 
 #**********
 Country_list = DataFrame(CSV.File("country_list.csv"));
