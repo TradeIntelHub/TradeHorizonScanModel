@@ -4,10 +4,18 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 import pyodbc
+import itertools
 
 ExporterKey = Tuple[int, int]
 ImporterKey = Tuple[int, int]
 CountryKey = Tuple[int, int]
+
+conn = pyodbc.connect(
+                        'DRIVER={ODBC Driver 17 for SQL Server};'
+                        'SERVER=c-goa-sql-10593;'
+                        'DATABASE=JET_TRDAT_UAT;'
+                        'Trusted_Connection=yes;'
+                    )
 
 def load_maps(
     exporter_path: str,
@@ -146,12 +154,6 @@ class TradeDataset(Dataset):
         )
 
     def Unify_Country_Codes(self):
-        conn = pyodbc.connect(
-                                'DRIVER={ODBC Driver 17 for SQL Server};'
-                                'SERVER=c-goa-sql-10593;'
-                                'DATABASE=JET_TRDAT_UAT;'
-                                'Trusted_Connection=yes;'
-                            )
         # define a function where we get the actual name of the cocuntries if code is given and we get the code if the name is given
         Country_codes = pd.read_sql("SELECT * FROM dbo.countryCodesDescriptionStatCanUNComTradeUSCensusBureau", conn)
         Country_codes = Country_codes.loc[:, ['Country', 'ctyCode', 'UNComTradeCtyId']]
@@ -169,7 +171,7 @@ class TradeDataset(Dataset):
         Country_codes.Country = Country_codes.Country.replace('China', 'China & Taiwan')
         self.code_to_country = dict(zip(Country_codes['UNComTradeCtyId'], Country_codes['Country']))
         self.country_to_code = dict(zip(Country_codes['Country'], Country_codes['UNComTradeCtyId']))
-
+        self.ctyCode_to_country = dict(zip(Country_codes['ctyCode'], Country_codes['Country']))
 
 
 
@@ -207,4 +209,51 @@ dataset = TradeDataset(
     Alberta_path = '../TradeHorizonScan/data/MA_Trade_Alberta.csv'
 )
 
+
+\
+
+# Adding ALberta and the rest of the world to the country_to_code and code_to_country
+dataset.country_to_code['Alberta'] = dataset.Alberta_df['exporter'].unique()[0]
+dataset.country_to_code['Rest of the World'] = 9998
+dataset.country_to_code['Canada'] = 124
+dataset.code_to_country[124] = 'Canada'
+dataset.code_to_country[dataset.Alberta_df['exporter'].unique()[0]] = 'Alberta'
+dataset.code_to_country[9998] = 'Rest of the World'
+
+
+
+unique_importer_codes = list(dataset.code_to_country.keys())
+unique_importer_codes.remove(9999)
+unique_importer_codes.remove(124)
+unique_years = [dataset.df['year'].max()]
+unique_hs_codes = dataset.df['hsCode'].unique()
+
+Alberta_full_trade_matrix = pd.DataFrame(list(itertools.product(unique_years, unique_importer_codes, unique_hs_codes)), 
+                                         columns=['year', 'importer', 'hsCode'])
+Alberta_full_trade_matrix['exporter'] = dataset.Alberta_df.exporter.unique()[0]
+Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, dataset.Alberta_df, on=['year', 'importer', 'exporter','hsCode'], how='left')
+print(f'There are {len(Alberta_full_trade_matrix):,} possible trade flows for Alberta ({len(unique_hs_codes)} HS codes, {unique_years[0]} year, {len(unique_importer_codes)} importers)')
+
+
+# Getting the real trade data for hte Alberta in 2024 (prediction year)
+latest_year = 2024
+Alberta_Actual_exports = pd.read_sql(f"SELECT * FROM dbo.statCanExportDataMonthly{latest_year}", conn)
+Alberta_Actual_exports = Alberta_Actual_exports.loc[Alberta_Actual_exports['provCode'] == 'AB'].reset_index(drop=True)
+Alberta_Actual_exports.ctyCode = Alberta_Actual_exports.ctyCode.replace("TW", "CN")
+Alberta_Actual_exports['hsCode'] = Alberta_Actual_exports['hs6Code'].astype(str).str.zfill(6).str.slice(0, 4).astype(int)
+Alberta_Actual_exports['year'] = latest_year
+Alberta_Actual_exports['exporter'] = dataset.Alberta_df.exporter.unique()[0]
+
+Alberta_Actual_exports['importer'] = Alberta_Actual_exports['ctyCode'].map(dataset.ctyCode_to_country).map(dataset.country_to_code)
+Alberta_Actual_exports.loc[Alberta_Actual_exports.importer.isna(), 'importer'] = 9998
+Alberta_Actual_exports['importer'] = Alberta_Actual_exports['importer'].astype(int)
+Alberta_Actual_exports.drop(columns=['stateCode', 'Quantity', 'provCode', 'hs6Code', 'YearMonth', 'ctyCode'], inplace=True)
+Alberta_Actual_exports = Alberta_Actual_exports.groupby(['hsCode', 'year', 'importer', 'exporter'], as_index=False).agg({'Value': 'sum'})
+Alberta_Actual_exports['Value'] = Alberta_Actual_exports['Value']/1000
+print(f'Alberta had {len(Alberta_Actual_exports):,} actual trade flows ({len(Alberta_Actual_exports.hsCode.unique())} HS codes, {Alberta_Actual_exports.year.unique()[0]} year, {len(Alberta_Actual_exports.importer.unique())} importers)')
+Alberta_Actual_exports.rename(columns={'Value': f'Actual_Alberta_{latest_year}_Values'}, inplace=True)
+# Merging the Alberta trade data with the Alberta full trade matrix
+Alberta_Actual_exports['year'] = Alberta_Actual_exports['year'] 
+Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, Alberta_Actual_exports, on=['importer', 'exporter','hsCode'], how='left')
+Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[~((Alberta_full_trade_matrix.importer == 9998) & (Alberta_full_trade_matrix.Actual_Alberta_2024_Values.isna()))]
 
