@@ -12,7 +12,7 @@ data = pd.read_csv("3- Diversification_Project_Preprocessed.csv", low_memory=Fal
 data.sort_values(by=['importer', 'exporter', 'hsCode', 'year'], inplace=True)
 data.reset_index()
 a = data.loc[data.year>=2015]
-print(f'Number of Nan values before the transformation: {a.isna().sum().sum()} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1])} %')
+print(f'Number of Nan values before the transformation: {a.isna().sum().sum():,} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1]):.2f} %')
 
 
 
@@ -98,7 +98,7 @@ data.sort_values(by=['importer', 'exporter', 'hsCode', 'year'], inplace=True)
 
 #data = data.loc[data.year>=2015]
 a = data.loc[data.year>=2015]
-print(f'Number of Nan values before the transformation: {a.isna().sum().sum()} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1])} %')
+print(f'Number of Nan values before the transformation: {a.isna().sum().sum():,} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1]):.2f} %')
 
 
 # I will replace nan values in UnitPrice columnS with 0s and add a new columns called UnitPriceFlags to indicate the rows that were replaced
@@ -127,8 +127,11 @@ data['MA_AvgUnitPriceofExporterToWorld'] = data['MA_AvgUnitPriceofExporterToWorl
 # 2020, 2021, and 2022 are flagged as Covid years
 data['Covid'] = np.where(data['year'].isin([2020, 2021, 2022]), True, False)
 
-data = data.round(3)
 
+# Rounding the values to 3 decimal places
+data = data.round(3)
+# Only keeping the after 2015 data
+data = data.loc[data.year>=2015]
 
 # Saving the output files
 trade_col = ['hsCode', 'year', 'importer', 'exporter', 'value', 'AvgUnitPrice','AvgUnitPriceFlags', 'AvgUnitPriceofImporterFromWorld','AvgUnitPriceofImporterFromWorldFlags', 'TotalImportofCmdbyReporter',
@@ -136,43 +139,52 @@ trade_col = ['hsCode', 'year', 'importer', 'exporter', 'value', 'AvgUnitPrice','
 MA_trade_col = ['hsCode', 'year', 'importer', 'exporter','MA_value', 'MA_AvgUnitPrice', 'MA_AvgUnitPriceFlags', 'MA_AvgUnitPriceofImporterFromWorld', 'MA_AvgUnitPriceofImporterFromWorldFlags', 'MA_TotalImportofCmdbyReporter',
                 'MA_AvgUnitPriceofExporterToWorld','MA_AvgUnitPriceofExporterToWorldFlags','MA_AvgUnitPriceofExporterToWorldFlags', 'MA_TotalExportofCmdbyPartner','MA_Trade_Complementarity','MA_Partner_Revealed_Comparative_Advantage', 'MA_Liberalising', 'MA_Harmful', 'Covid']
 trade = data[trade_col].drop_duplicates()
-MA_trade = data[MA_trade_col].drop_duplicates()
-trade.to_csv("output\\Trade.csv", index=False)
+MA_trade = data.loc[data.exporter!=9999, MA_trade_col].drop_duplicates()
+MA_trade_Alberta = data.loc[data.exporter==9999, MA_trade_col].drop_duplicates()
+#rade.to_csv("output\\Trade.csv", index=False)
 MA_trade.to_csv("output\\MA_Trade.csv", index=False)
+MA_trade_Alberta.to_csv("output\\MA_Trade_Alberta.csv", index=False)
 
 importer_col = ['importer', 'year', 'Theil_Importer_Concentration', 'GDPPerCapita_importer', 'TariffRatesAllProductsWeigthedAverage_importer', 'GeopoliticalIndex_importer', 'ConsumerPriceIndex_importer']
 MA_importer_col = ['importer', 'year', 'MA_Theil_Importer_Concentration', 'MA_GDPPerCapita_importer', 'MA_TariffRatesAllProductsWeigthedAverage_importer', 'MA_GeopoliticalIndex_importer', 'MA_ConsumerPriceIndex_importer']
 importer = data[importer_col].drop_duplicates()
 MA_importer = data[MA_importer_col].drop_duplicates()
-importer.to_csv("output\\Importer.csv", index=False)
+#importer.to_csv("output\\Importer.csv", index=False)
 MA_importer.to_csv("output\\MA_Importer.csv", index=False)
 
 exporter_col = ['exporter', 'year', 'Theil_Exporter_Concentration', 'GDPPerCapita_exporter', 'TariffRatesAllProductsWeigthedAverage_exporter', 'GeopoliticalIndex_exporter', 'ConsumerPriceIndex_exporter']
 MA_exporter_col = ['exporter', 'year', 'MA_Theil_Exporter_Concentration', 'MA_GDPPerCapita_exporter', 'MA_TariffRatesAllProductsWeigthedAverage_exporter', 'MA_GeopoliticalIndex_exporter', 'MA_ConsumerPriceIndex_exporter']
 exporter = data[exporter_col].drop_duplicates()
 MA_exporter = data[MA_exporter_col].drop_duplicates()
-exporter.to_csv("output\\Exporter.csv", index=False)
+#exporter.to_csv("output\\Exporter.csv", index=False)
 MA_exporter.to_csv("output\\MA_Exporter.csv", index=False)
 
 country_col = ['importer', 'exporter', 'contig', 'dist']
 MA_country_col = ['importer', 'exporter', 'MA_contig', 'MA_dist']
 country = data[country_col].drop_duplicates()
 MA_country = data[MA_country_col].drop_duplicates()
-country.to_csv("output\\Country.csv", index=False)
+#country.to_csv("output\\Country.csv", index=False)
 MA_country.to_csv("output\\MA_Country.csv", index=False)
+
+
+
+col = set(MA_country + MA_importer + MA_exporter + MA_trade)
+a = data.loc[data.year>=2015, list(col)]
+print(f'Number of Nan values after the transformation: {a.isna().sum().sum():,} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1]):.2f} %')
+
 
 # Visualizing Total Trade Value Over Time
 # We are marking the Covid years but no fixed year effect for now!
+data = data.loc[data.exporter!=9999] #Excluding Alberta to prevent double counting
 df  = data.groupby('year')['value'].sum().reset_index()
 df2  = data.loc[data.hsCode!=2709].groupby('year')['value'].sum().reset_index()
 df.columns = ['year', 'value']
 df2.columns = ['year', 'value']
-fig = px.line(df, x='year', y='value', title='Total Trade Value Over Time')
+fig = px.line(df, x='year', y='value', title='Total Trade Value (3-year MA) Over Time')
 fig.add_scatter(x=df2['year'], y=df2['value'], mode='lines+markers', name='Total Trade Excluding oil')
 fig.update_traces(mode='lines+markers')
 fig.update_layout(xaxis_title='Year', yaxis_title='Total Trade Value (in 1,000 USD)')
 fig.show()
-
 
 
 

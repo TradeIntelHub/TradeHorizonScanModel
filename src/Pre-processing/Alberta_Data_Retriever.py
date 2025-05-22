@@ -20,7 +20,7 @@ Country_codes = Country_codes.drop_duplicates(subset=['ctyCode'], keep='first')
 # And drop the rest to prevfent double accounting
 
 
-def Alberta_to_CEPII(Alberta,Canada , CEPII):
+def Alberta_to_CEPII(Alberta, Canada , CEPII):
     # This function will return the Alberta data adjusted for the CEPII methodology
     # By calculating Alberta(Statscan) Q an  V using the proportion of Canada_CEPII/StatsCan_Canada Q and V
     Canada_CEPII = CEPII.loc[CEPII['i'] == 124].reset_index(drop=True) #Exporter is Canada
@@ -52,6 +52,7 @@ def Alberta_to_CEPII(Alberta,Canada , CEPII):
 for year in range(2013, 2024):
     print(year)
     exports = pd.read_sql(f"SELECT * FROM dbo.statCanExportDataMonthly{year}", conn)
+    exports.ctyCode = exports.ctyCode.replace("TW", "CN") #Modifying Trades with Taiwan to trade with China to keep it consistent with the ComTrade and World Bank data
     exports = exports.groupby(['hs6Code', 'ctyCode', 'provCode'])[['Value', 'Quantity']].sum().reset_index()
     exports['Year'] = year
     exports = exports.loc[: ,[ 'Year', 'hs6Code', 'ctyCode', 'provCode', 'Value', 'Quantity']]
@@ -81,6 +82,7 @@ for year in range(2013, 2024):
 
     Alberta = Alberta_to_CEPII(Alberta, Canada, CEPII)
     Alberta = Alberta.loc[:, CEPII.columns]
+    Alberta['i'] = Alberta.i.replace('Alberta', 9999)
     CEPII2 = pd.concat([CEPII, Alberta], ignore_index=True)
     print(f'for the year {year} the number of rows in the CEPII data increased from {CEPII.shape[0]:,} to {CEPII2.shape[0]:,}')
     CEPII2.to_csv(f'../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y{year}_V202501_alberta.csv', index=False)

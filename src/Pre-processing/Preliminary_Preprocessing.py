@@ -22,21 +22,18 @@ for col in df.columns:
 
 # Preprocessing the data
 # 1. Remove the dollar sign
-'''
-df['GDPPerCapita_exporter'] = df['GDPPerCapita_exporter'].str.replace(' $', '').str.replace(',', '').str.replace(' ', '')
+df['GDPPerCapita_exporter'] = df['GDPPerCapita_exporter'].str.replace('$', '').str.replace(',', '').str.replace(' ', '')
 df['GDPPerCapita_importer'] = df['GDPPerCapita_importer'].str.replace('$', '').str.replace(',', '').str.replace(' ', '')
-df['ConsumerPriceIndex_importer'] = df['ConsumerPriceIndex_importer'].str.replace('$', '').str.replace(" N/A", "").str.replace(' ', '')
-df['ConsumerPriceIndex_exporter'] = df['ConsumerPriceIndex_exporter'].str.replace('$', '').str.replace(" N/A", "").str.replace(' ', '')
-df['GDP_importer'] = df['GDP_importer'].str.replace('$', '').str.replace(" N/A", "").str.replace(' ', '')
-df['GDP_exporter'] = df['GDP_exporter'].str.replace('$', '').str.replace(" N/A", "").str.replace(' ', '')
-'''
+#df['ConsumerPriceIndex_importer'] = df['ConsumerPriceIndex_importer'].str.replace('$', '').str.replace(" N/A", "").str.replace(' ', '')
+#df['ConsumerPriceIndex_exporter'] = df['ConsumerPriceIndex_exporter'].str.replace('$', '').str.replace(" N/A", "").str.replace(' ', '')
+
 # 2. Convert the data to numeric
-'''
 df['GDPPerCapita_exporter'] = pd.to_numeric(df['GDPPerCapita_exporter'])
+df['GDPPerCapita_exporter'] = df['GDPPerCapita_exporter'].astype(int)
 df['GDPPerCapita_importer'] = pd.to_numeric(df['GDPPerCapita_importer'])
-df['ConsumerPriceIndex_importer'] = pd.to_numeric(df['ConsumerPriceIndex_importer'])
-df['ConsumerPriceIndex_exporter'] = pd.to_numeric(df['ConsumerPriceIndex_exporter'])
-'''
+#df['ConsumerPriceIndex_importer'] = pd.to_numeric(df['ConsumerPriceIndex_importer'])
+#df['ConsumerPriceIndex_exporter'] = pd.to_numeric(df['ConsumerPriceIndex_exporter'])
+
 # Columns to drop
 '''
 col = ['year', 'importer', 'exporter', 'hsCode', 'GDP_importer', 'Population_importer', 'GDP_exporter', 'Population_exporter']
@@ -51,7 +48,7 @@ corr_matrix = df.drop(col3, axis=1).corr()
 fig = px.imshow(corr_matrix)
 fig.show()
 
-# Finding the average CORR for each variable
+# Finding the average and Max CORR for each variable
 avg_corr = (abs(corr_matrix).sum() - 1)/len(corr_matrix)
 max_corr = abs(corr_matrix).replace(1, 0).max()
 avg_corr = avg_corr.sort_values(ascending=False)
@@ -81,7 +78,6 @@ fig.show()
 
 # Final Step:
 # Decided columns to go to the next stage of the analysis
-
 to_be_removed = set(col3) - set(['year', 'importer', 'exporter', 'hsCode'])
 final= df.drop(to_be_removed, axis=1)
 
