@@ -56,7 +56,7 @@ _ = model.eval()
 
 
 
-dataset.Alberta_df.loc[(dataset.Alberta_df.hsCode == 2709) & (dataset.Alberta_df.year == 2023)]
+dataset.Alberta_df.loc[(dataset.Alberta_df.hsCode == 2709) & (dataset.Alberta_df.year == 2023)].columns
 
 idx = dataset.Alberta_df.loc[(dataset.Alberta_df.hsCode == 2709) & (dataset.Alberta_df.year == 2023) & (dataset.Alberta_df.importer == 840)].index[0]
 

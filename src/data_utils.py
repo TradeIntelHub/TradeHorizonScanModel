@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import torch
 from torch.utils.data import Dataset
+import pyodbc
 
 ExporterKey = Tuple[int, int]
 ImporterKey = Tuple[int, int]
@@ -85,6 +86,7 @@ class TradeDataset(Dataset):
             trd_path,
             usecols=[*['importer', 'exporter', 'hsCode', 'year', 'MA_value'], *trd_feats]
         )
+        self.df = df.reset_index(drop=True)
         self.inference_mode = kwargs.get('inference_mode', False)
         if self.inference_mode:
             Alberta_df = pd.read_csv(
@@ -93,7 +95,7 @@ class TradeDataset(Dataset):
             )
             self.Alberta_df = Alberta_df
             self.Alberta_df = Alberta_df.reset_index(drop=True)
-        self.df = df.reset_index(drop=True)
+            self.Unify_Country_Codes()
         self.trd_feats = list(trd_feats)
         # compute mean/std for trade features
         feat_arr = self.df[self.trd_feats].to_numpy(dtype=np.float32)
@@ -142,3 +144,67 @@ class TradeDataset(Dataset):
             cty_x,
             target
         )
+
+    def Unify_Country_Codes(self):
+        conn = pyodbc.connect(
+                                'DRIVER={ODBC Driver 17 for SQL Server};'
+                                'SERVER=c-goa-sql-10593;'
+                                'DATABASE=JET_TRDAT_UAT;'
+                                'Trusted_Connection=yes;'
+                            )
+        # define a function where we get the actual name of the cocuntries if code is given and we get the code if the name is given
+        Country_codes = pd.read_sql("SELECT * FROM dbo.countryCodesDescriptionStatCanUNComTradeUSCensusBureau", conn)
+        Country_codes = Country_codes.loc[:, ['Country', 'ctyCode', 'UNComTradeCtyId']]
+        Country_codes = Country_codes.loc[Country_codes['UNComTradeCtyId'].isin(set(self.df['importer'].unique()).union(self.Alberta_df['importer'].unique()))].reset_index(drop=True)
+        Country_codes.to_csv("data\\Country_codes.csv", index=False)
+        code_to_country = dict(zip(Country_codes['UNComTradeCtyId'], Country_codes['Country']))
+        a = Country_codes.loc[Country_codes['UNComTradeCtyId'].isin(self.df['importer'].unique())]
+        country_to_code = dict(zip(a['Country'], a['UNComTradeCtyId']))
+        self.Alberta_df['importer'] = self.Alberta_df['importer'].map(code_to_country).map(country_to_code)
+        if self.Alberta_df['importer'].isna().any():
+            missing_codes = self.Alberta_df['importer'].loc[self.Alberta_df.importer.isna()].unique()
+            raise ValueError(f"Unmapped country codes found: {missing_codes}")
+        Country_codes = Country_codes.loc[Country_codes.UNComTradeCtyId.isin(self.Alberta_df['importer'].unique())].reset_index(drop=True)
+        Country_codes.Country = Country_codes.Country.replace('Viet Nam', 'Vietnam')
+        Country_codes.Country = Country_codes.Country.replace('China', 'China & Taiwan')
+        self.code_to_country = dict(zip(Country_codes['UNComTradeCtyId'], Country_codes['Country']))
+        self.country_to_code = dict(zip(Country_codes['Country'], Country_codes['UNComTradeCtyId']))
+
+
+
+
+
+
+
+
+exporter_map, importer_map, country_map = load_maps(
+        '../TradeHorizonScan/data/MA_Exporter.csv', 
+        '../TradeHorizonScan/data/MA_Importer.csv',
+        '../TradeHorizonScan/data/MA_Country.csv'
+    )
+trade_feats: List[str] = [
+        'MA_AvgUnitPrice',
+        'MA_AvgUnitPriceFlags',
+        'MA_AvgUnitPriceofImporterFromWorld',
+        'MA_AvgUnitPriceofImporterFromWorldFlags',
+        'MA_TotalImportofCmdbyReporter',
+        'MA_AvgUnitPriceofExporterToWorld',
+        'MA_AvgUnitPriceofExporterToWorldFlags',
+        'MA_TotalExportofCmdbyPartner',
+        'MA_Trade_Complementarity',
+        'MA_Partner_Revealed_Comparative_Advantage',
+        'MA_Liberalising',
+        'MA_Harmful',
+        'Covid'
+    ]
+dataset = TradeDataset(
+    trd_path = '../TradeHorizonScan/data/MA_Trade.csv', 
+    exp_map = exporter_map,
+    imp_map = importer_map,
+    cty_map = country_map,
+    trd_feats = trade_feats,
+    inference_mode = True,
+    Alberta_path = '../TradeHorizonScan/data/MA_Trade_Alberta.csv'
+)
+
+
