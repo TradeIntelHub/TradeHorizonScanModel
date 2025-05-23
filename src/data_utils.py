@@ -251,7 +251,11 @@ class TradeDataset(Dataset):
         Alberta_Actual_exports.rename(columns={'Value': f'Actual_Alberta_{latest_year}_Values'}, inplace=True)
         # Merging the Alberta trade data with the Alberta full trade matrix
         Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, Alberta_Actual_exports.drop('year', axis=1), on=['importer', 'exporter','hsCode'], how='left')
-        Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[~((Alberta_full_trade_matrix.importer == 9998) & (Alberta_full_trade_matrix.Actual_Alberta_2024_Values.isna()))]
+        RoW = Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.importer == 9998]
+        RoW = RoW[RoW.Actual_Alberta_2024_Values>0]
+        RoW = RoW[['hsCode', 'Actual_Alberta_2024_Values']]
+        self.rest_of_the_world_hsCode_to_Trade_Value_2024 = dict(zip(RoW['hsCode'], RoW['Actual_Alberta_2024_Values']))
+        Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[(Alberta_full_trade_matrix.importer != 9998)]
         print(f'In {latest_year}, Alberta has only traded {len(Alberta_Actual_exports.hsCode.unique())} unique HS4 codes out of the {len(Alberta_full_trade_matrix.hsCode.unique())} HS4 codes.')
         l = len(Alberta_full_trade_matrix)
         Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.hsCode.isin(Alberta_Actual_exports.hsCode.unique())]
