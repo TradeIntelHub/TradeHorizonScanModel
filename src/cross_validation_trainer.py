@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Subset
 from sklearn.model_selection import KFold
-from model import TradeHorizonScanModel
+from src.model import TradeHorizonScanModel
 from torcheval.metrics import R2Score
 from typing import List
 import numpy as np

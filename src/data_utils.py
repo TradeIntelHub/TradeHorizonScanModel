@@ -1,4 +1,4 @@
-from typing import Dict, Tuple, Sequence
+from typing import Dict, Tuple, Sequence, List
 import pandas as pd
 import numpy as np
 import torch
