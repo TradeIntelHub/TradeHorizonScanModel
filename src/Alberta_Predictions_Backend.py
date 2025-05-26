@@ -56,16 +56,151 @@ _ = model.eval()
 
 
 
-dataset.Alberta_df.loc[(dataset.Alberta_df.hsCode == 2709) & (dataset.Alberta_df.year == 2023)].columns
 
-idx = dataset.Alberta_df.loc[(dataset.Alberta_df.hsCode == 2709) & (dataset.Alberta_df.year == 2023) & (dataset.Alberta_df.importer == 840)].index[0]
 
-with torch.no_grad():
-    (h_idx, tx, ex, im, ct, y) = dataset.__getitem__(idx)
-    h_idx, tx, ex, im, ct, y = [t.unsqueeze(0).to(device) for t in (h_idx, tx,ex,im,ct,y)]
-    y_pred = model(h_idx, tx, ex, im, ct)
-    y_pred = y_pred.cpu()
+def get_trade_predictions(HS4Code):
+    idx = list(dataset.Alberta_df.loc[(dataset.Alberta_df.hsCode == HS4Code)].index)
+    predicted_trades = []
+    actual_2024_trades = []
+    actual_MA_values = []
+    countries = []
+    total_import_MA = []
+    Results = pd.DataFrame()
+    with torch.no_grad():
+        for i in idx:
+            (h_idx, tx, ex, im, ct, y) = dataset.__getitem__(i)
+            h_idx, tx, ex, im, ct = [t.unsqueeze(0).to(device) for t in (h_idx, tx, ex, im, ct)]
+            y_pred = model(h_idx, tx, ex, im, ct)
+            predicted_trades.append(y_pred.item())
+            actual_MA_values.append(y.item())
+            actual_2024_trades.append(dataset.Alberta_df.iloc[i].Actual_Alberta_2024_Values)
+            countries.append(dataset.code_to_country[dataset.Alberta_df.iloc[i].importer])
+            total_import_MA.append(dataset.Alberta_df.iloc[i].MA_TotalImportofCmdbyReporter)
+    Results = pd.DataFrame((countries,actual_2024_trades, predicted_trades, actual_MA_values, total_import_MA ), 
+                index=['Country', 'Actual_2024_Trade', 'Model_Predicted_Trade', 'MA_Value', 'Importers_Total_Imports_MA']).T
+    Results['Adjusted_Predicted_Trade'] = Results['Model_Predicted_Trade'] * (Results['Actual_2024_Trade'].sum() / Results['Model_Predicted_Trade'].sum())
+    RoW_Trade = 0
+    if HS4Code in dataset.rest_of_the_world_hsCode_to_Trade_Value_2024.keys():
+        RoW_Trade = dataset.rest_of_the_world_hsCode_to_Trade_Value_2024[HS4Code]
+    new_row = pd.DataFrame([{
+        'Country': 'RoW',
+        'Actual_2024_Trade': RoW_Trade,
+        'Model_Predicted_Trade': np.nan,
+        'MA_Value': np.nan,
+        'Importers_Total_Imports_MA': np.nan,
+        'Adjusted_Predicted_Trade':  np.nan
+    }])
+    Results = pd.concat([Results, new_row], ignore_index=True)
+    # IF there is a country that is missing from the Results dataframe, we add it with NaN values
+    for country in set(dataset.code_to_country.values()) - set(['Canada', 'Alberta', 'Rest of the World']):
+        if country not in Results['Country'].values:
+            new_row = pd.DataFrame([{
+                'Country': country,
+                'Actual_2024_Trade': np.nan,
+                'Model_Predicted_Trade': np.nan,
+                'MA_Value': np.nan,
+                'Importers_Total_Imports_MA': np.nan,
+                'Adjusted_Predicted_Trade':  np.nan
+            }])
+            Results = pd.concat([Results, new_row], ignore_index=True)
+    Results.sort_values(by='Actual_2024_Trade', ascending=False, inplace=True)
+    Results.reset_index(drop=True, inplace=True)
+    Results.iloc[:, 1:] = Results.iloc[:, 1:] * 1000 # Now everything is in dollars (not in thousands of dollars anymore)
+    return Results
 
-y_pred = 6586867
-actual = dataset.Alberta_df.loc[idx, 'MA_value']
-(actual - y_pred)/actual
+def plot_trade_predictions(Results, name_of_commodity):
+    Results = Results.set_index('Country')
+    Results = Results.reindex(
+        [country for country in Results.index if country != 'RoW'] + ['RoW']
+    ).reset_index()
+    customdata = np.stack([
+    Results['Importers_Total_Imports_MA'].values,
+    Results['Actual_2024_Trade'].values / Results['Importers_Total_Imports_MA'].values * 100,
+    Results['Adjusted_Predicted_Trade'].values / Results['Importers_Total_Imports_MA'].values * 100
+                            ], axis=-1)
+    
+    fig = go.Figure()
+
+    fig.add_trace(go.Bar(
+        x=Results['Country'],
+        y=Results['Actual_2024_Trade'],
+        name='Actual 2024 Trade',
+        marker_color='steelblue',
+        customdata=customdata,
+        hovertemplate=(
+            'Country: %{x}<br>' +
+            'Actual Trade: $%{y:,.0f}<br>' +
+            'Total Imports (MA): $%{customdata[0]:,.0f}<br>' +
+            'Share of Total: %{customdata[1]:.1f}%<extra></extra>'
+        )
+    ))
+
+    fig.add_trace(go.Bar(
+        x=Results['Country'],
+        y=Results['Adjusted_Predicted_Trade'],
+        name='Adjusted Predicted Trade',
+        marker_color='darkorange',
+        customdata=customdata,
+        hovertemplate=(
+            'Country: %{x}<br>' +
+            'Predicted Trade: $%{y:,.0f}<br>' +
+            'Total Imports (MA): $%{customdata[0]:,.0f}<br>' +
+            'Share of Total: %{customdata[2]:.1f}%<extra></extra>'
+        )
+    ))
+
+    fig.update_layout(
+        title={
+            'text': f'Actual vs Adjusted Predicted Trade for HS Code {name_of_commodity}, (CAD)',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': dict(size=22)
+        },
+        xaxis=dict(
+            title='Country',
+            tickangle=-45,
+            tickfont=dict(size=12),
+        ),
+        yaxis=dict(
+            title='Trade Value',
+            tickfont=dict(size=12)
+        ),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='right',
+            x=1,
+            font=dict(size=12)
+        ),
+        barmode='group',  # ← switch from 'stack' to 'group'
+        template='plotly_white',
+        margin=dict(l=80, r=50, t=100, b=100),
+        height=600,
+        width=1000
+    )
+    fig.show()
+
+
+
+
+
+HS4Code = 1001
+plot_trade_predictions(get_trade_predictions(HS4Code), str(HS4Code))
+
+
+
+
+
+# Getting the total trade for all HS4 codes
+dfs = []
+for HS4Code in dataset.Alberta_df.hsCode.unique():
+    dfs.append(get_trade_predictions(HS4Code))
+df_total = sum(df.set_index('Country').fillna(0) for df in dfs).reset_index()
+df_total.sort_values(by='Actual_2024_Trade', ascending=False, inplace=True)
+df_total = df_total.round(0)
+df_total.loc[df_total.Country!="RoW"].sum()
+plot_trade_predictions(df_total, 'Total')
+
+
+
