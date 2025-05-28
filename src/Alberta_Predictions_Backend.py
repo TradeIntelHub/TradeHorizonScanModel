@@ -8,7 +8,14 @@ from torch.utils.data import DataLoader
 from torch.utils.data import DataLoader, Subset
 import torch
 import torch.nn as nn
-
+from typing import List, Dict, Tuple
+import pyodbc
+conn = pyodbc.connect(
+                        'DRIVER={ODBC Driver 17 for SQL Server};'
+                        'SERVER=c-goa-sql-10593;'
+                        'DATABASE=JET_TRDAT_UAT;'
+                        'Trusted_Connection=yes;'
+                    )
 
 
 exporter_map, importer_map, country_map = load_maps(
@@ -55,7 +62,9 @@ all_val_losses = checkpoint['all_val_losses']
 _ = model.eval()
 
 
-
+exchange_rate = pd.read_sql(f"SELECT * FROM statCanMonthlyCurrencyExchangeRatesUSDtoCAD", conn)
+exchange_rate = exchange_rate.sort_values('YearMonth').reset_index(drop=True)
+USDCAD = exchange_rate.iloc[-1, :]['ExchangeRateUSDtoCAD']
 
 
 def get_trade_predictions(HS4Code):
@@ -77,18 +86,18 @@ def get_trade_predictions(HS4Code):
             countries.append(dataset.code_to_country[dataset.Alberta_df.iloc[i].importer])
             total_import_MA.append(dataset.Alberta_df.iloc[i].MA_TotalImportofCmdbyReporter)
     Results = pd.DataFrame((countries,actual_2024_trades, predicted_trades, actual_MA_values, total_import_MA ), 
-                index=['Country', 'Actual_2024_Trade', 'Model_Predicted_Trade', 'MA_Value', 'Importers_Total_Imports_MA']).T
-    Results['Adjusted_Predicted_Trade'] = Results['Model_Predicted_Trade'] * (Results['Actual_2024_Trade'].sum() / Results['Model_Predicted_Trade'].sum())
+                index=['Country', 'Actual_2024_Trade_CAD', 'Model_Predicted_Trade_USD', 'MA_Value_USD', 'Importers_Total_Imports_MA_USD']).T
+    Results['Adjusted_Predicted_Trade_CAD'] = Results['Model_Predicted_Trade_USD'] * (Results['Actual_2024_Trade_CAD'].sum() / Results['Model_Predicted_Trade_USD'].sum())
     RoW_Trade = 0
     if HS4Code in dataset.rest_of_the_world_hsCode_to_Trade_Value_2024.keys():
         RoW_Trade = dataset.rest_of_the_world_hsCode_to_Trade_Value_2024[HS4Code]
     new_row = pd.DataFrame([{
         'Country': 'RoW',
-        'Actual_2024_Trade': RoW_Trade,
-        'Model_Predicted_Trade': np.nan,
-        'MA_Value': np.nan,
-        'Importers_Total_Imports_MA': np.nan,
-        'Adjusted_Predicted_Trade':  np.nan
+        'Actual_2024_Trade_CAD': RoW_Trade,
+        'Model_Predicted_Trade_USD': np.nan,
+        'MA_Value_USD': np.nan,
+        'Importers_Total_Imports_MA_USD': np.nan,
+        'Adjusted_Predicted_Trade_CAD':  np.nan
     }])
     Results = pd.concat([Results, new_row], ignore_index=True)
     # IF there is a country that is missing from the Results dataframe, we add it with NaN values
@@ -96,14 +105,14 @@ def get_trade_predictions(HS4Code):
         if country not in Results['Country'].values:
             new_row = pd.DataFrame([{
                 'Country': country,
-                'Actual_2024_Trade': np.nan,
-                'Model_Predicted_Trade': np.nan,
-                'MA_Value': np.nan,
-                'Importers_Total_Imports_MA': np.nan,
-                'Adjusted_Predicted_Trade':  np.nan
+                'Actual_2024_Trade_CAD': np.nan,
+                'Model_Predicted_Trade_USD': np.nan,
+                'MA_Value_USD': np.nan,
+                'Importers_Total_Imports_MA_USD': np.nan,
+                'Adjusted_Predicted_Trade_CAD':  np.nan
             }])
             Results = pd.concat([Results, new_row], ignore_index=True)
-    Results.sort_values(by='Actual_2024_Trade', ascending=False, inplace=True)
+    Results.sort_values(by='Actual_2024_Trade_CAD', ascending=False, inplace=True)
     Results.reset_index(drop=True, inplace=True)
     Results.iloc[:, 1:] = Results.iloc[:, 1:] * 1000 # Now everything is in dollars (not in thousands of dollars anymore)
     return Results
@@ -114,16 +123,16 @@ def plot_trade_predictions(Results, name_of_commodity):
         [country for country in Results.index if country != 'RoW'] + ['RoW']
     ).reset_index()
     customdata = np.stack([
-    Results['Importers_Total_Imports_MA'].values,
-    Results['Actual_2024_Trade'].values / Results['Importers_Total_Imports_MA'].values * 100,
-    Results['Adjusted_Predicted_Trade'].values / Results['Importers_Total_Imports_MA'].values * 100
+    Results['Importers_Total_Imports_MA_USD'].values * USDCAD,
+    Results['Actual_2024_Trade_CAD'].values /(Results['Importers_Total_Imports_MA_USD'].values * USDCAD) * 100,
+    Results['Adjusted_Predicted_Trade_CAD'].values /(Results['Importers_Total_Imports_MA_USD'].values * USDCAD) * 100
                             ], axis=-1)
     
     fig = go.Figure()
 
     fig.add_trace(go.Bar(
         x=Results['Country'],
-        y=Results['Actual_2024_Trade'],
+        y=Results['Actual_2024_Trade_CAD'],
         name='Actual 2024 Trade',
         marker_color='steelblue',
         customdata=customdata,
@@ -137,7 +146,7 @@ def plot_trade_predictions(Results, name_of_commodity):
 
     fig.add_trace(go.Bar(
         x=Results['Country'],
-        y=Results['Adjusted_Predicted_Trade'],
+        y=Results['Adjusted_Predicted_Trade_CAD'],
         name='Adjusted Predicted Trade',
         marker_color='darkorange',
         customdata=customdata,
@@ -151,7 +160,7 @@ def plot_trade_predictions(Results, name_of_commodity):
 
     fig.update_layout(
         title={
-            'text': f'Actual vs Adjusted Predicted Trade for HS Code {name_of_commodity}, (CAD)',
+            'text': f'Actual vs Adjusted Predicted Trade for {name_of_commodity} (HS4 level, CAD)',
             'x': 0.5,
             'xanchor': 'center',
             'font': dict(size=22)
@@ -186,7 +195,7 @@ def plot_trade_predictions(Results, name_of_commodity):
 
 
 HS4Code = 1001
-plot_trade_predictions(get_trade_predictions(HS4Code), str(HS4Code))
+plot_trade_predictions(get_trade_predictions(HS4Code), "Crude Oil")
 
 
 
@@ -201,6 +210,5 @@ df_total.sort_values(by='Actual_2024_Trade', ascending=False, inplace=True)
 df_total = df_total.round(0)
 df_total.loc[df_total.Country!="RoW"].sum()
 plot_trade_predictions(df_total, 'Total')
-
 
 
