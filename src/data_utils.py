@@ -256,6 +256,7 @@ class TradeDataset(Dataset):
         RoW = RoW[['hsCode', 'Actual_Alberta_2024_Values']]
         self.rest_of_the_world_hsCode_to_Trade_Value_2024 = dict(zip(RoW['hsCode'], RoW['Actual_Alberta_2024_Values']))
         Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[(Alberta_full_trade_matrix.importer != 9998)]
+
         print(f'In {latest_year}, Alberta has only traded {len(Alberta_Actual_exports.hsCode.unique())} unique HS4 codes out of the {len(Alberta_full_trade_matrix.hsCode.unique())} HS4 codes.')
         l = len(Alberta_full_trade_matrix)
         Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.hsCode.isin(Alberta_Actual_exports.hsCode.unique())]
@@ -300,45 +301,6 @@ class TradeDataset(Dataset):
         self.Alberta_df = Alberta_full_trade_matrix
         print(f'Now we have {len(self.Alberta_df):,} trade flows (Actual and Potential) with no missing values')
         return
-
-
-
-
-
-
-'''
-exporter_map, importer_map, country_map = load_maps(
-        '../TradeHorizonScan/data/MA_Exporter.csv', 
-        '../TradeHorizonScan/data/MA_Importer.csv',
-        '../TradeHorizonScan/data/MA_Country.csv'
-    )
-trade_feats: List[str] = [
-        'MA_AvgUnitPrice',
-        'MA_AvgUnitPriceFlags',
-        'MA_AvgUnitPriceofImporterFromWorld',
-        'MA_AvgUnitPriceofImporterFromWorldFlags',
-        'MA_TotalImportofCmdbyReporter',
-        'MA_AvgUnitPriceofExporterToWorld',
-        'MA_AvgUnitPriceofExporterToWorldFlags',
-        'MA_TotalExportofCmdbyPartner',
-        'MA_Trade_Complementarity',
-        'MA_Partner_Revealed_Comparative_Advantage',
-        'MA_Liberalising',
-        'MA_Harmful',
-        'Covid'
-    ]
-dataset = TradeDataset(
-    trd_path = '../TradeHorizonScan/data/MA_Trade.csv', 
-    exp_map = exporter_map,
-    imp_map = importer_map,
-    cty_map = country_map,
-    trd_feats = trade_feats,
-    inference_mode = True,
-    Alberta_path = '../TradeHorizonScan/data/MA_Trade_Alberta.csv'
-)
-dataset.Alberta_df
-'''
-
 
 
 

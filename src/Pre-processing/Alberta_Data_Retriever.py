@@ -40,9 +40,10 @@ def Alberta_to_CEPII(Alberta, Canada , CEPII):
     assert Canada_df.duplicated(subset=['ctyCode', 'k']).sum() == 0, "There are duplicates in the Alberta data"
     Alberta_df = pd.merge(Alberta_df, Canada_df[['canada_v', 'canada_q', 'ctyCode', 'k']], how='left', on=['ctyCode', 'k'])
     Alberta_df = pd.merge(Alberta_df, Canada_CEPII[['canada_cepii_v', 'canada_cepii_q', 'ctyCode', 'k']], how='left', on=['ctyCode', 'k'])
-
+    # HEre I adjust the StatsCan Alberta data to match the CEPII methodology for both the Value and Quantity
     Alberta_df['adjusted_v'] = Alberta_df['alberta_v'] * (Alberta_df['canada_v']/Alberta_df['canada_cepii_v'])
     Alberta_df['adjusted_q'] = Alberta_df['alberta_q'] * (Alberta_df['canada_q']/Alberta_df['canada_cepii_q'])
+    # if adjustement is not possible, I fill the NaN values with the original Alberta data
     Alberta_df['adjusted_v'] = Alberta_df['adjusted_v'].fillna(Alberta_df['alberta_v'])
     Alberta_df['adjusted_q'] = Alberta_df['adjusted_q'].fillna(Alberta_df['alberta_q'])
     Alberta_df = Alberta_df.loc[:, ['t', 'i','j', 'k', 'adjusted_v', 'adjusted_q']]
