@@ -45,10 +45,10 @@ payload = {
     "offset": 0,
     "sorting": "-date_announced",
     "request_data": { 
-        "implementing_jurisdiction": [32], #test 5 country
-        "affected": [36],
+        "implementing_jurisdiction": [{"name": "China", "code": 156}], #test 5 country
+        "affected": countries_code,  # Implementor country
         "event_period":years,  # 2013-2023 inclusive
-        "gta_evaluation": [4, 5],  # 4: Harmful, 5: Liberalising
+        "gta_evaluation": "Harmful",  # 4: Harmful, 5: Liberalising
         "affected_products": HS_codes
     }
 }
