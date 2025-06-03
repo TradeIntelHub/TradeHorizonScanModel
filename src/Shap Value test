@@ -1,0 +1,340 @@
+
+from src.data_utils import load_maps, TradeDataset
+from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Subset
+from src.model import TradeHorizonScanModel
+import torch
+import torch.nn as nn
+from typing import List, Dict, Tuple
+import numpy as np
+from src.cross_validation_trainer import cross_validate
+import matplotlib.pyplot as plt
+
+import pandas as pd
+
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+#import os
+#print(os.getcwd())
+
+
+
+exporter_map, importer_map, country_map = load_maps(
+        '../TradeHorizonScan/data/MA_Exporter.csv', 
+        '../TradeHorizonScan/data/MA_Importer.csv',
+        '../TradeHorizonScan/data/MA_Country.csv'
+    )
+
+
+
+trade_feats: List[str] = [
+    'MA_AvgUnitPrice',
+    'MA_AvgUnitPriceFlags',
+    'MA_AvgUnitPriceofImporterFromWorld',
+    'MA_AvgUnitPriceofImporterFromWorldFlags',
+    'MA_TotalImportofCmdbyReporter',
+    'MA_AvgUnitPriceofExporterToWorld',
+    'MA_AvgUnitPriceofExporterToWorldFlags',
+    'MA_TotalExportofCmdbyPartner',
+    'MA_Trade_Complementarity',
+    'MA_Partner_Revealed_Comparative_Advantage',
+    'MA_Liberalising',
+    'MA_Harmful',
+    'Covid'
+]
+
+dataset = TradeDataset(
+    trd_path = '../TradeHorizonScan/data/MA_Trade.csv', 
+    exp_map = exporter_map,
+    imp_map = importer_map,
+    cty_map = country_map,
+    trd_feats = trade_feats,
+    #if want to get alberta data for prediction not training
+    inference_mode = True,
+    Alberta_path = '../TradeHorizonScan/data/MA_Trade_Alberta.csv'
+)
+#dataset.df = dataset.df.sample(frac=0.001, random_state=42).reset_index(drop=True)
+print(f"Dataset created, size: {len(dataset)}")
+
+
+'''
+dataset.df.head()
+print(dataset.df.columns)
+dataset.df['MA_Trade_Complementarity'].describe()
+dataset.df.loc[dataset.df['MA_Trade_Complementarity'].idxmin()]
+'''
+
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+#set up device
+device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+#set up model
+model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
+    dim_trd = len(trade_feats),
+    dim_exp = next(iter(exporter_map.values())).shape[0],
+    dim_imp = next(iter(importer_map.values())).shape[0],
+    dim_cty = next(iter(country_map.values())).shape[0]).to(device)
+
+checkpoint = torch.load('../TradeHorizonScan/models/checkpoint165.pth')
+model.load_state_dict(checkpoint['model_state_dict'])
+epoch = checkpoint['epoch']
+all_train_losses = checkpoint['all_train_losses']
+all_val_losses = checkpoint['all_val_losses']
+_ = model.eval()
+
+
+
+#setup 2023 Alberta data for prediction
+if len(dataset.Alberta_df) == 0:
+    raise ValueError("No data found for year 2023 in Alberta_df")
+print(f"Number of 2023 records: {len(dataset.Alberta_df)}")
+
+dataset.Alberta_df.head()
+dataset.Alberta_df.shape
+
+
+
+#---------------------------------------------------------------------------------------------------------------------------------------------------------
+
+predictions = []
+actuals = []
+with torch.no_grad():
+    for idx in range(len(dataset.Alberta_df)):
+        h_idx, tx, ex, im, ct, y = dataset.__getitem__(idx)
+        h_idx, tx, ex, im, ct, y = [t.unsqueeze(0).to(device) for t in (h_idx, tx, ex, im, ct, y)]
+        y_pred = model(h_idx, tx, ex, im, ct)
+        y_pred = y_pred.cpu().numpy().item()
+        y_actual = y.cpu().numpy().item()
+        predictions.append(y_pred)
+        actuals.append(y_actual)
+
+
+results_df = pd.DataFrame(columns=['importer', 'exporter', 'hsCode', 'year', 'Actual', 'Predicted'])
+results_df = dataset.Alberta_df[['importer', 'exporter', 'hsCode', 'year']].copy()
+results_df['Actual'] = actuals
+results_df['Predicted'] = predictions
+
+results_df.head()
+
+print(f"Total predictions for 2023: {len(predictions)}")
+
+
+#plot actual and predicted values
+plt.figure(figsize=(10, 6))
+plt.scatter(results_df['Actual'], results_df['Predicted'], alpha=0.5)
+plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], 
+         [results_df['Actual'].min(), results_df['Actual'].max()], 
+         color='red', linestyle='--')
+plt.xlabel('Actual Values')
+plt.ylabel('Predicted Values')
+plt.title('Actual vs Predicted Values for Alberta 2023')
+plt.xlim(results_df['Actual'].min(), results_df['Actual'].max())
+plt.ylim(results_df['Predicted'].min(), results_df['Predicted'].max())
+plt.grid()
+plt.show()
+#-------------------------------------------------------------------------------------------------------------------------------------------------------
+#shap value estimation
+#warp model / prepare bacground data 
+#shap dont work with df, work with numpy arrays
+
+import shap
+import random
+# Background  data for SHAP
+background_size = 200
+background_data = []
+alberta_indices = dataset.Alberta_df.index.tolist()# get indices # of Alberta data           
+random.shuffle(alberta_indices) # make alberta index randomly ordered, then get random 100 samples
+alberta_indices
+
+
+with torch.no_grad():
+    for idx in alberta_indices[:min(background_size, len(dataset.Alberta_df))]:
+        try:
+            h_idx, tx, ex, im, ct, y = dataset.__getitem__(idx)
+            background_data.append((
+                #h_idx.cpu().numpy().flatten(),
+                tx.cpu().numpy().flatten(),
+                ex.cpu().numpy().flatten(),
+                im.cpu().numpy().flatten(),
+                ct.cpu().numpy().flatten()
+            ))
+        except KeyError as e:
+            print(f"KeyError skipped in background data at index {idx}: {e}")
+            continue
+
+background_data
+
+#transfer to numpy arrays for SHAP
+#background_h_idx = np.array([data[0] for data in background_data])
+"""
+background_tx = np.array([data[1] for data in background_data])
+background_ex = np.array([data[2] for data in background_data])
+background_im = np.array([data[3] for data in background_data])
+background_ct = np.array([data[4] for data in background_data])            
+"""
+background_tx = np.array([data[0] for data in background_data])  # tx**
+background_ex = np.array([data[1] for data in background_data])  # ex**
+background_im = np.array([data[2] for data in background_data])  # im**
+background_ct = np.array([data[3] for data in background_data])
+
+
+#Stack all features horizontally for SHAP 
+#background_X = np.hstack([background_h_idx, background_tx, background_ex, background_im, background_ct])
+#background_X
+
+background_X_no_hidx = np.hstack([background_tx, background_ex, background_im, background_ct])
+background_X_no_hidx.shape
+
+
+
+explain_data = []
+with torch.no_grad():
+    for idx in alberta_indices[:min(background_size, len(dataset.Alberta_df))]:
+        try:
+            h_idx, tx, ex, im, ct, y = dataset.__getitem__(idx)
+            explain_data.append(np.hstack([
+                #h_idx.cpu().numpy().flatten(),
+                tx.cpu().numpy().flatten(),
+                ex.cpu().numpy().flatten(),
+                im.cpu().numpy().flatten(),
+                ct.cpu().numpy().flatten()
+            ]))
+        except KeyError as e:
+            print(f"KeyError skipped in explain data at index {idx}: {e}")
+            continue
+explain_X = np.vstack(explain_data)
+explain_X.shape
+
+
+# Remove h_idx from background_X and explain_X for SHAP plotting
+#explain_X_no_hidx = np.hstack([explain_X[:, 1:]])
+
+# Wrap model for SHAP because SHAP requires a model that takes a single tensor input
+"""class WrappedModel(torch.nn.Module):
+    def __init__(self, model,default_h_idx=0):
+        super().__init__()
+        self.model = model.cpu()  # Ensure model is on CPU
+        self.default_h_idx = default_h_idx
+
+
+    def forward(self, X):
+        # Split X into the original components
+        #h_idx = torch.tensor(X[:, 0], dtype=torch.long)
+        tx = torch.tensor(X[:, 1:1+len(trade_feats)], dtype=torch.float32)
+        ex_start = 1 + len(trade_feats)
+        ex_end = ex_start + background_ex.shape[1]
+        im_start = ex_end
+        im_end = im_start + background_im.shape[1]
+        ct_start = im_end
+        ct_end = ct_start + background_ct.shape[1]
+        ex = torch.tensor(X[:, ex_start:ex_end], dtype=torch.float32)
+        im = torch.tensor(X[:, im_start:im_end], dtype=torch.float32)
+        ct = torch.tensor(X[:, ct_start:ct_end], dtype=torch.float32)
+        output = self.model(h_idx, tx, ex, im, ct)
+        if output.dim() == 1:
+            output = output.unsqueeze(1)  # Ensure output is (batch_size, 1)
+        return output"""
+
+class WrappedModel(torch.nn.Module):
+    def __init__(self, model, default_h_idx=0):  #set default_h_idx to 0 
+        super().__init__()
+        self.model = model.cpu()  
+        self.default_h_idx = default_h_idx  
+
+    def forward(self, X):
+        # X:[tx, ex, im, ct]
+        tx_size = len(trade_feats)  
+        ex_size = background_ex.shape[1]  
+        im_size = background_im.shape[1]  
+        ct_size = background_ct.shape[1] 
+
+        tx = torch.tensor(X[:, :tx_size], dtype=torch.float32)  
+        ex = torch.tensor(X[:, tx_size:tx_size+ex_size], dtype=torch.float32)
+        im = torch.tensor(X[:, tx_size+ex_size:tx_size+ex_size+im_size], dtype=torch.float32)
+        ct = torch.tensor(X[:, tx_size+ex_size+im_size:], dtype=torch.float32) 
+        
+        h_idx = torch.tensor([self.default_h_idx] * X.shape[0], dtype=torch.long) 
+
+        output = self.model(h_idx, tx, ex, im, ct)
+        if output.dim() == 1:
+            output = output.unsqueeze(1)  
+        return output
+
+wrapped_model = WrappedModel(model)
+
+"""# Create SHAP explainer and calculate SHAP values
+explainer = shap.DeepExplainer(wrapped_model, torch.tensor(background_X_no_hidx, dtype=torch.float32).clone().detach())
+shap_values = explainer.shap_values(torch.tensor(explain_X, dtype=torch.float32))
+"""
+# 創建 SHAP 解釋器
+try:
+    explainer = shap.DeepExplainer(wrapped_model, torch.tensor(background_X_no_hidx, dtype=torch.float32).clone().detach())
+except Exception as e:
+    print(f"Failed to create SHAP explainer: {e}")
+    raise
+
+# 計算 SHAP 值，禁用加和性檢查
+try:
+    shap_values = explainer.shap_values(torch.tensor(explain_X, dtype=torch.float32).clone().detach(), check_additivity=False)
+except Exception as e:
+    print(f"Failed to calculate SHAP values: {e}")
+    print("Trying KernelExplainer as a fallback...")
+    try:
+        explainer = shap.KernelExplainer(wrapped_model, background_X_no_hidx)
+        shap_values = explainer.shap_values(explain_X, nsamples=100)
+    except Exception as ke:
+        print(f"KernelExplainer failed: {ke}")
+        raise
+print(f"shap explainer: {type(explainer).__name__}")
+
+
+#--------------------------------------------------------------------------------------------------------------------------------------------------------
+# Visualize
+exporter_feature_names = [
+    'Exp_Theil_Concentration',
+    'Exp_GDPPerCapita',
+    'Exp_GeopoliticalIndex',
+    'Exp_ConsumerPriceIndex'
+]
+
+importer_feature_names = [
+    'Imp_Theil_Concentration',
+    'Imp_GDPPerCapita',
+    'Imp_TariffRates',
+    'Imp_GeopoliticalIndex',
+    'Imp_ConsumerPriceIndex'
+]
+
+feature_names = (
+    trade_feats +
+    exporter_feature_names +
+    importer_feature_names +
+    [f"country_{i}" for i in range(background_ct.shape[1])]
+)
+
+print("explain_X shape:", explain_X.shape)
+print("shap_values shape:", np.array(shap_values).shape)
+print("feature_names length:", len(feature_names))
+shap_values = np.array(shap_values)
+if shap_values.ndim == 3 and shap_values.shape[2] == 1:
+    shap_values = shap_values.squeeze(-1)
+print("shap_values shape:", np.array(shap_values).shape)
+
+
+plt.figure(figsize=(10, 12)) 
+shap.summary_plot(shap_values, explain_X, feature_names=feature_names, show=False) 
+plt.title("SHAP Summary Plot for Alberta 2023 Trade Value (Excluding HS Code)")
+plt.tight_layout()
+plt.show()
+
+
+# 
+# Plot SHAP values for trade_feats only
+trade_feats_indices = list(range(len(trade_feats)))
+shap_values_trade_feats = shap_values[:, trade_feats_indices]
+feature_names_trade_feats = feature_names[:len(trade_feats)]
+plt.figure(figsize=(10, 8))
+shap.summary_plot(shap_values_trade_feats, explain_X[:, trade_feats_indices], feature_names=feature_names_trade_feats, show=False)
+plt.title("SHAP Summary Plot for Alberta 2023 Trade Value (Excluding HS Code)- trade_feats")
+plt.tight_layout()
+plt.show()
