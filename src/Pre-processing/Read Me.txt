@@ -2,21 +2,26 @@
 	0.1 Downloads Alberta and Canada Trade Data from StatCan
 	0.2 Adjusts Alberta trade data based on the proportion of the Canada trade data based on CEPII to StatCan
 	0.3 Adds the Alberta trade data with code 9999 to the CEPII files
-	0.4 IMPORTANT NOTE: Comtrade and World Bank consider Taiwan as part of China, in order to keep the consistency of our 	method as much as possible, for Alberta trade data retrieved from the StatCan, I modify the trades with Taiwan to trades 	with China.
+	0.4 IMPORTANT NOTE: Comtrade and World Bank consider Taiwan as part of China, in order to keep the consistency of our 	method as much as possible, for Alberta trade data retrieved from the StatCan, 		I modify the trades with Taiwan to trades with China.
 
 1- Process_CEPII.jl
 	1.1 Reads BACI files. Calculates desired variables like TotalExportofCmdbyPartner, TotalExportbyPartner, WorldExportofCmd, 								WorldTotalExport, 	AvgUnitPriceofExporterToWorld, ...
 	1.2 Calculate the related measures like Theil Concentration Index, RCA, Trade_Complementarity
 	1.3 Output file is: "CEPII_Processed_HS4_$(starting_year)_2023.csv" in the CEPII Folder
-2- Matching_Tables.jl
-	2.1 Filters the countries to TOP30 according to the country_list.csv
-	2.2 Adds Commodity_policty and Country Distance and Macro_var .csv to the CEPII_Processed (Trade data) from previous code
-	2.3 Output file is: "Diversification_Project_Raw.csv"
+2- country_cmd_policy.py
+	2.1 Inputs to this file are: a) Trade_Policies_GTA.csv, b) country_list.csv, c) 1- CEPII_Processed_HS4_2013_2023.csv
+	2.2 It processes downloaded Trade_Policies_GTA file to act as an input in the Matching_Tables.jl code
+	2.3 The output is called 'country_cmd_policy.csv'
 
-3- Preliminary_Preprocessing.py
-	3.1 Cleans the raw data (e.g. getting rid of dollar signs etc)
-	3.2 Does the VIF and Correlation Analysis which we use to select the variables in the model
-	3.3 Create the flag columns for the AvgUnitPrice columnS
-	3.4 
-4- Moving_Average.py
-	4.1 
+3- Matching_Tables.jl
+	3.1 Filters the countries to TOP30 according to the country_list.csv
+	3.2 Adds Commodity_policty and Country Distance and Macro_var .csv to the CEPII_Processed (Trade data) from previous code
+	3.3 Output file is: "Diversification_Project_Raw.csv"
+
+4- Preliminary_Preprocessing.py
+	4.1 Cleans the raw data (e.g. getting rid of dollar signs etc)
+	4.2 Does the VIF and Correlation Analysis which we use to select the variables in the model
+	4.3 Create the flag columns for the AvgUnitPrice columnS
+	4.4 
+5- Moving_Average.py
+	5.1 

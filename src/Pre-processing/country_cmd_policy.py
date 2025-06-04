@@ -143,17 +143,27 @@ print(f'{len(data):,}')
 all_countries = data['importer'].unique().tolist()
 df = data.copy()
 df['exporter'] = df['exporter'].apply(lambda x: all_countries if x == 'all' else [x])
+print(f'{len(df):,}')
 df = df.explode('exporter').reset_index(drop=True)
-
+print(f'{len(df):,}')
 
 # Taking care of the 'all' HS4
 all_HS4 = pd.read_csv('../TradeHorizonScan/src/Pre-processing/data/1- CEPII_Processed_HS4_2013_2023.csv')['hsCode']
-all_HS4.head()
+all_HS4 = all_HS4.unique().tolist()
+all_HS4 = [str(code).zfill(4) for code in all_HS4]  
+df['HS4'] = df['HS4'].apply(lambda x: all_HS4 if x == 'all' else [x])
+print(f'{len(df):,}')
+df = df.explode('HS4').reset_index(drop=True)
+print(f'{len(df):,}')
 
 
 
-# Remove dupolicates
-# Thake care of ALL products or Countries
+df = df.groupby(['importer', 'exporter', 'HS4', 'yrs']
+                    )[['Harmful', 'Liberalizing']].sum().reset_index()
+print(f'{len(df):,}')
+
+
+
 
 
 
