@@ -143,12 +143,12 @@ import random
 background_size = 200
 background_data = []
 alberta_indices = dataset.Alberta_df.index.tolist()# get indices # of Alberta data           
-#random.shuffle(alberta_indices) # make alberta index randomly ordered, then get random 100 samples
+random.shuffle(alberta_indices) # make alberta index randomly ordered, then get random 100 samples
 alberta_indices
 
-
+background_indices = alberta_indices[:background_size]
 with torch.no_grad():
-    for idx in alberta_indices[:min(background_size, len(dataset.Alberta_df))]:
+    for idx in background_indices:
         try:
             h_idx, tx, ex, im, ct, y = dataset.__getitem__(idx)
             background_data.append((
@@ -185,10 +185,10 @@ background_X.shape
 #background_X_no_hidx
 
 
-
+explain_indices = alberta_indices[background_size:background_size+background_size]
 explain_data = []
 with torch.no_grad():
-    for idx in alberta_indices[:min(background_size, len(dataset.Alberta_df))]:
+    for idx in explain_indices:
         try:
             h_idx, tx, ex, im, ct, y = dataset.__getitem__(idx)
             explain_data.append(np.hstack([
@@ -203,6 +203,8 @@ with torch.no_grad():
             continue
 explain_X = np.vstack(explain_data)
 explain_X.shape
+
+print(np.allclose(background_X, explain_X)) # incase data ooverlap, check if background_X and explain_X are the same
 
 
 # Remove h_idx from background_X and explain_X for SHAP plotting
@@ -238,8 +240,32 @@ class WrappedModel(torch.nn.Module):
     def __init__(self, model):
         super().__init__()
         self.model = model.cpu()
-
     def forward(self, X):
+    # Define sizes
+        h_idx_size = background_h_idx.shape[1]
+        tx_size = len(trade_feats)
+        ex_size = background_ex.shape[1]
+        im_size = background_im.shape[1]
+        ct_size = background_ct.shape[1]
+
+        start = 0
+        h_idx = X[:, start].long()  # shape: (batch_size,)
+        start += h_idx_size
+        tx = X[:, start:start+tx_size].float()
+        start += tx_size
+        ex = X[:, start:start+ex_size].float()
+        start += ex_size
+        im = X[:, start:start+im_size].float()
+        start += im_size
+        ct = X[:, start:start+ct_size].float()
+
+        output = self.model(h_idx, tx, ex, im, ct)
+        if output.dim() == 1:
+            output = output.unsqueeze(1)
+        return output
+
+
+"""    def forward(self, X):
         # Define sizes
         h_idx_size = background_h_idx.shape[1]
         tx_size = len(trade_feats)
@@ -262,22 +288,24 @@ class WrappedModel(torch.nn.Module):
         output = self.model(h_idx, tx, ex, im, ct)
         if output.dim() == 1:
             output = output.unsqueeze(1)
-        return output
+        return output"""
 
 wrapped_model = WrappedModel(model)
-
+preds = wrapped_model(torch.tensor(explain_X, dtype=torch.float32))
+print(preds[:10])
 """# Create SHAP explainer and calculate SHAP values
 explainer = shap.DeepExplainer(wrapped_model, torch.tensor(background_X_no_hidx, dtype=torch.float32).clone().detach())
 shap_values = explainer.shap_values(torch.tensor(explain_X, dtype=torch.float32))
 """
 # shap explainer
-try:
+
+"""try:
     explainer = shap.DeepExplainer(wrapped_model, torch.tensor(background_X, dtype=torch.float32).clone().detach())
 except Exception as e:
     print(f"Failed to create SHAP explainer: {e}")
     raise
 
-# 計算 SHAP 值，禁用加和性檢查
+
 try:
     shap_values = explainer.shap_values(torch.tensor(explain_X, dtype=torch.float32).clone().detach(), check_additivity=False)
 except Exception as e:
@@ -289,8 +317,10 @@ except Exception as e:
     except Exception as ke:
         print(f"KernelExplainer failed: {ke}")
         raise
-print(f"shap explainer: {type(explainer).__name__}")
+print(f"shap explainer: {type(explainer).__name__}")"""
 
+explainer = shap.DeepExplainer(wrapped_model, torch.tensor(background_X, dtype=torch.float32).clone().detach())
+shap_values = explainer.shap_values(torch.tensor(explain_X, dtype=torch.float32).clone().detach(), check_additivity=False)
 
 #--------------------------------------------------------------------------------------------------------------------------------------------------------
 # Visualize
@@ -327,9 +357,10 @@ print("shap_values shape:", np.array(shap_values).shape)
 
 shap_values.sum()
 explain_X
-#backgroyund_X_no_hidx
 
 
+#-------------------------------------------------------------------------------------------------------------------------------
+#plot SHAP summary plot
 
 plt.figure(figsize=(10, 12)) 
 shap.summary_plot(shap_values, explain_X, feature_names=feature_names, show=False) 
@@ -338,7 +369,7 @@ plt.tight_layout()
 plt.show()
 
 
-# 
+
 # Plot SHAP values for trade_feats only
 trade_feats_indices = list(range(len(trade_feats)))
 shap_values_trade_feats = shap_values[:, trade_feats_indices]
@@ -348,3 +379,14 @@ shap.summary_plot(shap_values_trade_feats, explain_X[:, trade_feats_indices], fe
 plt.title("SHAP Summary Plot for Alberta 2023 Trade Value (Excluding HS Code)- trade_feats")
 plt.tight_layout()
 plt.show()
+
+
+
+#--------------------------------------------------------------------------------------------------------------------------------------------------------
+#plot for specific 
+specific_data = dataset.Alberta_df[
+    (dataset.Alberta_df['exporter'] == 9999) &
+    (dataset.Alberta_df['importer'] == 840) &
+    (dataset.Alberta_df['hsCode'] == 2709)
+]
+specific_data
