@@ -68,10 +68,9 @@ val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size, shuffle
 
 # Setting the final training parameters
 early_stopping = EarlyStopping(patience=50, delta=0)
-epochs = 26
+epochs = 100
 all_train_losses = []
 all_val_losses = []
-
 
 # Training the model
 start_time = time.time()
@@ -131,12 +130,13 @@ for epoch in range(epochs):
         print("Early stopping")
         break
 
-
+# Get the data related ot Harmful liberalizing policies:
+# https://globaltradealert..org/api-access
 
 
 '''
 # Loading the best model
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint165.pth')
+checkpoint = torch.load('../TradeHorizonScan/models/checkpoint62.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -158,8 +158,8 @@ with torch.no_grad():
         _ = r2_metric.update(preds, y)
 r2 = r2_metric.compute()
 print(f"R-squared: {r2.item():.2f}")
-
-
+print(min(all_val_losses)**0.5)
+print(min(all_val_losses)**0.5/dataset.df['MA_value'].mean())
 
 # Plotting the training and validation loss
 fig = go.Figure()
