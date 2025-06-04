@@ -92,7 +92,7 @@ print(f"Number of 2023 records: {len(dataset.Alberta_df)}")
 dataset.Alberta_df.head()
 dataset.Alberta_df.shape
 
-#123
+
 
 #---------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -119,19 +119,6 @@ results_df.head()
 print(f"Total predictions for 2023: {len(predictions)}")
 
 
-#plot actual and predicted values
-"""plt.figure(figsize=(10, 6))
-plt.scatter(results_df['Actual'], results_df['Predicted'], alpha=0.5)
-plt.plot([results_df['Actual'].min(), results_df['Actual'].max()], 
-         [results_df['Actual'].min(), results_df['Actual'].max()], 
-         color='red', linestyle='--')
-plt.xlabel('Actual Values')
-plt.ylabel('Predicted Values')
-plt.title('Actual vs Predicted Values for Alberta 2023')
-plt.xlim(results_df['Actual'].min(), results_df['Actual'].max())
-plt.ylim(results_df['Predicted'].min(), results_df['Predicted'].max())
-plt.grid()
-plt.show()"""
 #-------------------------------------------------------------------------------------------------------------------------------------------------------
 #shap value estimation
 #warp model / prepare bacground data 
@@ -140,7 +127,7 @@ plt.show()"""
 import shap
 import random
 # Background  data for SHAP
-background_size = 200
+background_size = 500
 background_data = []
 alberta_indices = dataset.Alberta_df.index.tolist()# get indices # of Alberta data           
 random.shuffle(alberta_indices) # make alberta index randomly ordered, then get random 100 samples
@@ -150,7 +137,7 @@ background_indices = alberta_indices[:background_size]
 with torch.no_grad():
     for idx in background_indices:
         try:
-            h_idx, tx, ex, im, ct, y = dataset.__getitem__(idx)
+            h_idx, tx, ex, im, ct, y = dataset.__getitem__(idx) # need fix to retrive Alberta data, now is estimate for entire dataset
             background_data.append((
                 h_idx.cpu().numpy().flatten(),
                 tx.cpu().numpy().flatten(),
@@ -170,12 +157,7 @@ background_tx = np.array([data[1] for data in background_data])
 background_ex = np.array([data[2] for data in background_data])
 background_im = np.array([data[3] for data in background_data])
 background_ct = np.array([data[4] for data in background_data])            
-"""
-background_tx = np.array([data[0] for data in background_data])  # tx**
-background_ex = np.array([data[1] for data in background_data])  # ex**
-background_im = np.array([data[2] for data in background_data])  # im**
-background_ct = np.array([data[3] for data in background_data])
-"""
+
 
 #Stack all features horizontally for SHAP 
 background_X = np.hstack([background_h_idx, background_tx, background_ex, background_im, background_ct])
@@ -211,30 +193,6 @@ print(np.allclose(background_X, explain_X)) # incase data ooverlap, check if bac
 #explain_X_no_hidx = np.hstack([explain_X[:, 1:]])
 
 # Wrap model for SHAP because SHAP requires a model that takes a single tensor input
-"""class WrappedModel(torch.nn.Module):
-    def __init__(self, model,default_h_idx=0):
-        super().__init__()
-        self.model = model.cpu()  # Ensure model is on CPU
-        self.default_h_idx = default_h_idx
-
-
-    def forward(self, X):
-        # Split X into the original components
-        #h_idx = torch.tensor(X[:, 0], dtype=torch.long)
-        tx = torch.tensor(X[:, 1:1+len(trade_feats)], dtype=torch.float32)
-        ex_start = 1 + len(trade_feats)
-        ex_end = ex_start + background_ex.shape[1]
-        im_start = ex_end
-        im_end = im_start + background_im.shape[1]
-        ct_start = im_end
-        ct_end = ct_start + background_ct.shape[1]
-        ex = torch.tensor(X[:, ex_start:ex_end], dtype=torch.float32)
-        im = torch.tensor(X[:, im_start:im_end], dtype=torch.float32)
-        ct = torch.tensor(X[:, ct_start:ct_end], dtype=torch.float32)
-        output = self.model(h_idx, tx, ex, im, ct)
-        if output.dim() == 1:
-            output = output.unsqueeze(1)  # Ensure output is (batch_size, 1)
-        return output"""
 
 class WrappedModel(torch.nn.Module):
     def __init__(self, model):
@@ -265,30 +223,7 @@ class WrappedModel(torch.nn.Module):
         return output
 
 
-"""    def forward(self, X):
-        # Define sizes
-        h_idx_size = background_h_idx.shape[1]
-        tx_size = len(trade_feats)
-        ex_size = background_ex.shape[1]
-        im_size = background_im.shape[1]
-        ct_size = background_ct.shape[1]
 
-        # Correct slicing using start
-        start = 0
-        h_idx = torch.tensor(X[:, start], dtype=torch.long)  # shape: (batch_size,)
-        start += h_idx_size
-        tx = torch.tensor(X[:, start:start+tx_size], dtype=torch.float32)
-        start += tx_size
-        ex = torch.tensor(X[:, start:start+ex_size], dtype=torch.float32)
-        start += ex_size
-        im = torch.tensor(X[:, start:start+im_size], dtype=torch.float32)
-        start += im_size
-        ct = torch.tensor(X[:, start:start+ct_size], dtype=torch.float32)
-
-        output = self.model(h_idx, tx, ex, im, ct)
-        if output.dim() == 1:
-            output = output.unsqueeze(1)
-        return output"""
 
 wrapped_model = WrappedModel(model)
 preds = wrapped_model(torch.tensor(explain_X, dtype=torch.float32))
@@ -299,29 +234,10 @@ shap_values = explainer.shap_values(torch.tensor(explain_X, dtype=torch.float32)
 """
 # shap explainer
 
-"""try:
-    explainer = shap.DeepExplainer(wrapped_model, torch.tensor(background_X, dtype=torch.float32).clone().detach())
-except Exception as e:
-    print(f"Failed to create SHAP explainer: {e}")
-    raise
-
-
-try:
-    shap_values = explainer.shap_values(torch.tensor(explain_X, dtype=torch.float32).clone().detach(), check_additivity=False)
-except Exception as e:
-    print(f"Failed to calculate SHAP values: {e}")
-    print("Trying KernelExplainer as a fallback...")
-    try:
-        explainer = shap.KernelExplainer(wrapped_model, background_X)
-        shap_values = explainer.shap_values(explain_X, nsamples=100)
-    except Exception as ke:
-        print(f"KernelExplainer failed: {ke}")
-        raise
-print(f"shap explainer: {type(explainer).__name__}")"""
 
 explainer = shap.DeepExplainer(wrapped_model, torch.tensor(background_X, dtype=torch.float32).clone().detach())
 shap_values = explainer.shap_values(torch.tensor(explain_X, dtype=torch.float32).clone().detach(), check_additivity=False)
-
+shap_values.shape
 #--------------------------------------------------------------------------------------------------------------------------------------------------------
 # Visualize
 exporter_feature_names = [
@@ -346,7 +262,7 @@ feature_names = (
     importer_feature_names +
     [f"country_{i}" for i in range(background_ct.shape[1])]
 )
-
+len(feature_names)
 print("explain_X shape:", explain_X.shape)
 print("shap_values shape:", np.array(shap_values).shape)
 print("feature_names length:", len(feature_names))
@@ -363,12 +279,12 @@ explain_X
 #plot SHAP summary plot
 
 plt.figure(figsize=(10, 12)) 
-shap.summary_plot(shap_values, explain_X, feature_names=feature_names, show=False) 
+shap.summary_plot(shap_values, explain_X, feature_names=feature_names, show=False,max_display=25) 
 plt.title("SHAP Summary Plot for Alberta 2023 Trade Value (Excluding HS Code)")
 plt.tight_layout()
 plt.show()
 
-
+#absolute value add   shap values
 
 # Plot SHAP values for trade_feats only
 trade_feats_indices = list(range(len(trade_feats)))
@@ -381,12 +297,3 @@ plt.tight_layout()
 plt.show()
 
 
-
-#--------------------------------------------------------------------------------------------------------------------------------------------------------
-#plot for specific 
-specific_data = dataset.Alberta_df[
-    (dataset.Alberta_df['exporter'] == 9999) &
-    (dataset.Alberta_df['importer'] == 840) &
-    (dataset.Alberta_df['hsCode'] == 2709)
-]
-specific_data
