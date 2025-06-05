@@ -163,11 +163,23 @@ df = df.groupby(['importer', 'exporter', 'HS4', 'yrs']
 print(f'{len(df):,}')
 
 
+# Changin the country names to country codes
+countries_to_keep = pd.read_csv('../TradeHorizonScan/src/Pre-processing/data/country_list.csv')
+countries_to_keep = countries_to_keep[['Country', 'PartnerCode']]
+countries_to_keep = countries_to_keep.loc[countries_to_keep.Country.duplicated(keep='first') ]
+countries_to_keep = countries_to_keep.loc[countries_to_keep.Country.drop_duplicates().index].reset_index(drop=True)
+countries_to_keep
+df = df.merge(countries_to_keep, left_on='importer', right_on='Country', how='left')
+df.drop(columns=['importer', 'Country'], inplace=True)
+df.rename(columns={'PartnerCode': 'importer'}, inplace=True)
+df = df.merge(countries_to_keep, left_on='exporter', right_on='Country', how='left')
+df.drop(columns=['exporter', 'Country'], inplace=True)
+df.rename(columns={'PartnerCode': 'exporter'}, inplace=True)
 
 
-
-
-
+df = df[['yrs', 'importer','HS4','exporter','Harmful','Liberalizing']].reset_index(drop=True)  
+# China includes Taiwan in this file.
+df.to_csv('../TradeHorizonScan/src/Pre-processing/data/country_cmd_policy.csv', index=False)
 
 
 
