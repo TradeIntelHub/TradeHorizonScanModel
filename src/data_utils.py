@@ -205,18 +205,13 @@ class TradeDataset(Dataset):
         cols_to_merge.extend(cols_on)
         Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, self.df[cols_to_merge].drop_duplicates(), on=cols_on, how='left')
 
-        cols_on = ['year', 'hsCode']
-        cols_to_merge = ['MA_Harmful', 'MA_Liberalising'] 
-        cols_to_merge.extend(cols_on)
-        Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, self.df[cols_to_merge].drop_duplicates(), on=cols_on, how='left')
-
         cols_on = ['year', 'hsCode', 'exporter'] # NOtice that if exporter is one of the key columns, then we need to use the Alberta_df
         cols_to_merge = ['MA_Partner_Revealed_Comparative_Advantage', 'MA_TotalExportofCmdbyPartner', 'MA_AvgUnitPriceofExporterToWorldFlags', 'MA_AvgUnitPriceofExporterToWorld'] 
         cols_to_merge.extend(cols_on)
         Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, self.Alberta_df[cols_to_merge].drop_duplicates(), on=cols_on, how='left')
 
         cols_on = ['year', 'hsCode', 'exporter', 'importer']
-        cols_to_merge = ['MA_Trade_Complementarity'] 
+        cols_to_merge = ['MA_Trade_Complementarity', 'MA_Harmful', 'MA_Liberalising'] 
         cols_to_merge.extend(cols_on)
         Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, self.Alberta_df[cols_to_merge].drop_duplicates(), on=cols_on, how='left')
 
@@ -272,7 +267,7 @@ class TradeDataset(Dataset):
         Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.MA_value.isna(), 'MA_value'] = 0
         Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.Actual_Alberta_2024_Values.isna(), 'Actual_Alberta_2024_Values'] = 0
 
-
+        #Filling the Alberta missing values with the Canada numbers
         cols_on = ['year', 'hsCode'] 
         cols_to_merge = ['MA_Partner_Revealed_Comparative_Advantage', 'MA_TotalExportofCmdbyPartner', 'MA_AvgUnitPriceofExporterToWorldFlags', 'MA_AvgUnitPriceofExporterToWorld'] 
         cols_to_merge.extend(cols_on)
