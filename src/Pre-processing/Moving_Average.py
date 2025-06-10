@@ -18,11 +18,11 @@ print(f'Number of Nan values before the transformation: {a.isna().sum().sum():,}
 
 # Calculating the moving average (['importer', 'exporter', 'hsCode'])
 # Basically variables that are specific to an importer, exporter and hsCode (and a year obviously)
-col = ['value', 'AvgUnitPrice', 'Trade_Complementarity', ]
-df = data[['importer', 'exporter', 'hsCode', 'year', 'value', 'AvgUnitPrice', 'Trade_Complementarity']].drop_duplicates()
+col = ['value', 'AvgUnitPrice', 'Trade_Complementarity', 'Liberalising', 'Harmful']
+df = data[['importer', 'exporter', 'hsCode', 'year', 'value', 'AvgUnitPrice', 'Trade_Complementarity', 'Liberalising',  'Harmful']].drop_duplicates()
 df = df.sort_values(by=['importer', 'exporter', 'hsCode', 'year'])
 df = df.set_index('year').groupby(['importer', 'exporter', 'hsCode'])[col].rolling(window=3, min_periods=1).mean().reset_index()
-df.columns = ['importer', 'exporter', 'hsCode','year', 'MA_value', 'MA_AvgUnitPrice', 'MA_Trade_Complementarity']
+df.columns = ['importer', 'exporter', 'hsCode','year', 'MA_value', 'MA_AvgUnitPrice', 'MA_Trade_Complementarity', 'MA_Liberalising', 'MA_Harmful']
 # Merge the moving average with the original dataframe
 data = pd.merge(data, df, on=['year', 'importer', 'exporter', 'hsCode'], how='left')
 
@@ -82,7 +82,9 @@ df.columns = ['exporter', 'year', 'MA_Theil_Exporter_Concentration', 'MA_GDPPerC
 # Merge the moving average with the original dataframe
 data = pd.merge(data, df, on=['year', 'exporter'], how='left')
 
-
+'''
+Using the new dataset for Liberalising and Harmful variables
+Now these two variables are not specific to an importer, exporter or hsCode
 # Calculating the moving average (['hsCode'])
 # Basically variables that are specific to an hsCode (and a year obviously)
 col = ['Liberalising', 'Harmful']
@@ -93,7 +95,7 @@ df.columns = ['hsCode', 'year', 'MA_Liberalising', 'MA_Harmful']
 # Merge the moving average with the original dataframe
 data = pd.merge(data, df, on=['year', 'hsCode'], how='left')
 data.sort_values(by=['importer', 'exporter', 'hsCode', 'year'], inplace=True)
-
+'''
 
 
 #data = data.loc[data.year>=2015]
@@ -120,6 +122,10 @@ data['AvgUnitPriceofExporterToWorld'] = data['AvgUnitPriceofExporterToWorld'].fi
 data['MA_AvgUnitPriceofExporterToWorldFlags'] = np.where(data['MA_AvgUnitPriceofExporterToWorld'].isna(), True, False)
 data['MA_AvgUnitPriceofExporterToWorld'] = data['MA_AvgUnitPriceofExporterToWorld'].fillna(0)
 
+
+a = data.loc[data.year>=2015]
+print(f'Number of Nan values before the transformation: {a.isna().sum().sum():,} cells,  {100* a.isna().sum().sum()/(a.shape[0]*a.shape[1]):.2f} %')
+# Present of Nan values in MA_GeopoliticalIndex_exporter(/importer) and MA_TariffRatesAllProductsWeigthedAverage_exporter(/importer) is expected
 
 # Including Covid years
 # https://www.nm.org/healthbeat/medical-advances/new-therapies-and-drug-trials/covid-19-pandemic-timeline
@@ -174,7 +180,7 @@ print(f'Number of Nan values after the transformation: {a.isna().sum().sum():,} 
 
 
 # Visualizing Total Trade Value Over Time
-# We are marking the Covid years but no fixed year effect for now!
+# We are flagging the Covid years but no fixed year effect for now!
 data = data.loc[data.exporter!=9999] #Excluding Alberta to prevent double counting
 df  = data.groupby('year')['value'].sum().reset_index()
 df2  = data.loc[data.hsCode!=2709].groupby('year')['value'].sum().reset_index()

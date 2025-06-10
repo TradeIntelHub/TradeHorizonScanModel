@@ -31,6 +31,11 @@ df['GDPPerCapita_importer'] = df['GDPPerCapita_importer'].str.replace('$', '').s
 df['GDPPerCapita_exporter'] = pd.to_numeric(df['GDPPerCapita_exporter'])
 df['GDPPerCapita_exporter'] = df['GDPPerCapita_exporter'].astype(int)
 df['GDPPerCapita_importer'] = pd.to_numeric(df['GDPPerCapita_importer'])
+df['GDPPerCapita_importer'] = df['GDPPerCapita_importer'].astype(int)
+
+
+
+
 #df['ConsumerPriceIndex_importer'] = pd.to_numeric(df['ConsumerPriceIndex_importer'])
 #df['ConsumerPriceIndex_exporter'] = pd.to_numeric(df['ConsumerPriceIndex_exporter'])
 
@@ -95,6 +100,6 @@ final['AvgUnitPriceofExporterToWorld'] = final['AvgUnitPriceofExporterToWorld'].
 '''
 # Taking care of null values in Harmful and Liberalising columns which means they are zeros
 final['Harmful'] = final['Harmful'].fillna(0)
+final.rename(columns={'Liberalizing': 'Liberalising'}, inplace=True)
 final['Liberalising'] = final['Liberalising'].fillna(0)
-
 final.to_csv("3- Diversification_Project_Preprocessed.csv", index=False)
