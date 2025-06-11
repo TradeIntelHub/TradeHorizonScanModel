@@ -10,12 +10,7 @@ ExporterKey = Tuple[int, int]
 ImporterKey = Tuple[int, int]
 CountryKey = Tuple[int, int]
 
-conn = pyodbc.connect(
-                        'DRIVER={ODBC Driver 17 for SQL Server};'
-                        'SERVER=c-goa-sql-10593;'
-                        'DATABASE=JET_TRDAT_UAT;'
-                        'Trusted_Connection=yes;'
-                    )
+
 
 def load_maps(
     exporter_path: str,
@@ -155,6 +150,12 @@ class TradeDataset(Dataset):
         )
 
     def Unify_Country_Codes(self):
+        conn = pyodbc.connect(
+                        'DRIVER={ODBC Driver 17 for SQL Server};'
+                        'SERVER=c-goa-sql-10593;'
+                        'DATABASE=JET_TRDAT_UAT;'
+                        'Trusted_Connection=yes;'
+                    )
         # define a function where we get the actual name of the cocuntries if code is given and we get the code if the name is given
         Country_codes = pd.read_sql("SELECT * FROM dbo.countryCodesDescriptionStatCanUNComTradeUSCensusBureau", conn)
         Country_codes = Country_codes.loc[:, ['Country', 'ctyCode', 'UNComTradeCtyId']]

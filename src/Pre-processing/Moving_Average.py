@@ -140,6 +140,9 @@ data = data.round(3)
 data = data.loc[data.year>=2015]
 
 # Saving the output files
+# Output files are saved directly in the data folder now.
+os.chdir(os.path.dirname(os.path.dirname(os.path.dirname(os.getcwd()))))
+
 trade_col = ['hsCode', 'year', 'importer', 'exporter', 'value', 'AvgUnitPrice','AvgUnitPriceFlags', 'AvgUnitPriceofImporterFromWorld','AvgUnitPriceofImporterFromWorldFlags', 'TotalImportofCmdbyReporter',
              'AvgUnitPriceofExporterToWorld','AvgUnitPriceofExporterToWorldFlags', 'TotalExportofCmdbyPartner','Trade_Complementarity','Partner_Revealed_Comparative_Advantage', 'Liberalising', 'Harmful', 'Covid']
 MA_trade_col = ['hsCode', 'year', 'importer', 'exporter','MA_value', 'MA_AvgUnitPrice', 'MA_AvgUnitPriceFlags', 'MA_AvgUnitPriceofImporterFromWorld', 'MA_AvgUnitPriceofImporterFromWorldFlags', 'MA_TotalImportofCmdbyReporter',
@@ -148,29 +151,29 @@ trade = data[trade_col].drop_duplicates()
 MA_trade = data.loc[data.exporter!=9999, MA_trade_col].drop_duplicates()
 MA_trade_Alberta = data.loc[data.exporter==9999, MA_trade_col].drop_duplicates()
 #rade.to_csv("output\\Trade.csv", index=False)
-MA_trade.to_csv("output\\MA_Trade.csv", index=False)
-MA_trade_Alberta.to_csv("output\\MA_Trade_Alberta.csv", index=False)
+MA_trade.to_csv("data\\MA_Trade.csv", index=False)
+MA_trade_Alberta.to_csv("data\\MA_Trade_Alberta.csv", index=False)
 
 importer_col = ['importer', 'year', 'Theil_Importer_Concentration', 'GDPPerCapita_importer', 'TariffRatesAllProductsWeigthedAverage_importer', 'GeopoliticalIndex_importer', 'ConsumerPriceIndex_importer']
 MA_importer_col = ['importer', 'year', 'MA_Theil_Importer_Concentration', 'MA_GDPPerCapita_importer', 'MA_TariffRatesAllProductsWeigthedAverage_importer', 'MA_GeopoliticalIndex_importer', 'MA_ConsumerPriceIndex_importer']
 importer = data[importer_col].drop_duplicates()
 MA_importer = data[MA_importer_col].drop_duplicates()
 #importer.to_csv("output\\Importer.csv", index=False)
-MA_importer.to_csv("output\\MA_Importer.csv", index=False)
+MA_importer.to_csv("data\\MA_Importer.csv", index=False)
 
 exporter_col = ['exporter', 'year', 'Theil_Exporter_Concentration', 'GDPPerCapita_exporter', 'TariffRatesAllProductsWeigthedAverage_exporter', 'GeopoliticalIndex_exporter', 'ConsumerPriceIndex_exporter']
 MA_exporter_col = ['exporter', 'year', 'MA_Theil_Exporter_Concentration', 'MA_GDPPerCapita_exporter', 'MA_TariffRatesAllProductsWeigthedAverage_exporter', 'MA_GeopoliticalIndex_exporter', 'MA_ConsumerPriceIndex_exporter']
 exporter = data[exporter_col].drop_duplicates()
 MA_exporter = data[MA_exporter_col].drop_duplicates()
 #exporter.to_csv("output\\Exporter.csv", index=False)
-MA_exporter.to_csv("output\\MA_Exporter.csv", index=False)
+MA_exporter.to_csv("data\\MA_Exporter.csv", index=False)
 
 country_col = ['importer', 'exporter', 'contig', 'dist']
 MA_country_col = ['importer', 'exporter', 'MA_contig', 'MA_dist']
 country = data[country_col].drop_duplicates()
 MA_country = data[MA_country_col].drop_duplicates()
 #country.to_csv("output\\Country.csv", index=False)
-MA_country.to_csv("output\\MA_Country.csv", index=False)
+MA_country.to_csv("data\\MA_Country.csv", index=False)
 
 
 

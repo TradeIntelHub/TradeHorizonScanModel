@@ -17,6 +17,8 @@ conn = pyodbc.connect(
                         'Trusted_Connection=yes;'
                     )
 
+Country_codes = pd.read_sql("SELECT * FROM dbo.countryCodesDescriptionStatCanUNComTradeUSCensusBureau", conn)
+
 
 exporter_map, importer_map, country_map = load_maps(
         '../TradeHorizonScan/data/MA_Exporter.csv', 
@@ -54,7 +56,7 @@ model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
     dim_imp = next(iter(importer_map.values())).shape[0],
     dim_cty = next(iter(country_map.values())).shape[0]).to(device)
 
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint165.pth')
+checkpoint = torch.load('../TradeHorizonScan/models/checkpoint225.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 epoch = checkpoint['epoch']
 all_train_losses = checkpoint['all_train_losses']
@@ -190,15 +192,18 @@ def plot_trade_predictions(Results, name_of_commodity):
     )
     fig.show()
 
+##################################
+# make sure the printed numbers make sense
+##################################
 
 
 
 
-HS4Code = 1001
-plot_trade_predictions(get_trade_predictions(HS4Code), "Crude Oil")
-
-
-
+# Oil: 2709
+# Wheat: 1001
+HS4Code = (2709,  "Wheat")
+results = get_trade_predictions(HS4Code[0])
+plot_trade_predictions(results, HS4Code[1])
 
 
 # Getting the total trade for all HS4 codes
