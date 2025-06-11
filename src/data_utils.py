@@ -280,11 +280,11 @@ class TradeDataset(Dataset):
             Alberta_full_trade_matrix.drop(f'{col}_canada', axis=1, inplace=True)
 
         cols_on = ['year', 'hsCode', 'importer'] 
-        cols_to_merge = ['MA_AvgUnitPrice', 'MA_AvgUnitPriceFlags', 'MA_Trade_Complementarity'] 
+        cols_to_merge = ['MA_AvgUnitPrice', 'MA_AvgUnitPriceFlags', 'MA_Trade_Complementarity', 'MA_Harmful', 'MA_Liberalising'] 
         cols_to_merge.extend(cols_on)
         Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, 
                                             self.df.loc[self.df.exporter==124, cols_to_merge].drop_duplicates(), on=cols_on, how='left', suffixes=('', '_canada'))
-        cols_to_merge = ['MA_AvgUnitPrice', 'MA_AvgUnitPriceFlags', 'MA_Trade_Complementarity']
+        cols_to_merge = ['MA_AvgUnitPrice', 'MA_AvgUnitPriceFlags', 'MA_Trade_Complementarity', 'MA_Harmful', 'MA_Liberalising']
         for col in cols_to_merge:
             Alberta_full_trade_matrix[col] = Alberta_full_trade_matrix[col].combine_first(Alberta_full_trade_matrix[f'{col}_canada'])
             Alberta_full_trade_matrix.drop(f'{col}_canada', axis=1, inplace=True)
