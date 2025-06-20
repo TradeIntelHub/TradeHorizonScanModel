@@ -18,7 +18,8 @@ Country_codes = Country_codes.drop_duplicates(subset=['ctyCode'], keep='first')
 # Notice all differennt UNComTradeCtyId are included in the furhter processing dat
 # SO Here for each ctyCode I pick the first available UNComTradeCtyId
 # And drop the rest to prevfent double accounting
-
+USD_CAD = pd.read_sql("SELECT * FROM dbo.statCanMonthlyCurrencyExchangeRatesUSDtoCAD", conn)
+USD_CAD['cad_to_usd'] = 1 / USD_CAD['ExchangeRateUSDtoCAD']
 
 def Alberta_to_CEPII(Alberta, Canada , CEPII):
     # This function will return the Alberta data adjusted for the CEPII methodology
@@ -41,8 +42,8 @@ def Alberta_to_CEPII(Alberta, Canada , CEPII):
     Alberta_df = pd.merge(Alberta_df, Canada_df[['canada_v', 'canada_q', 'ctyCode', 'k']], how='left', on=['ctyCode', 'k'])
     Alberta_df = pd.merge(Alberta_df, Canada_CEPII[['canada_cepii_v', 'canada_cepii_q', 'ctyCode', 'k']], how='left', on=['ctyCode', 'k'])
     # HEre I adjust the StatsCan Alberta data to match the CEPII methodology for both the Value and Quantity
-    Alberta_df['adjusted_v'] = Alberta_df['alberta_v'] * (Alberta_df['canada_v']/Alberta_df['canada_cepii_v'])
-    Alberta_df['adjusted_q'] = Alberta_df['alberta_q'] * (Alberta_df['canada_q']/Alberta_df['canada_cepii_q'])
+    Alberta_df['adjusted_v'] = Alberta_df['alberta_v'] * (Alberta_df['canada_cepii_v']/Alberta_df['canada_v'])
+    Alberta_df['adjusted_q'] = Alberta_df['alberta_q'] * (Alberta_df['canada_cepii_q']/Alberta_df['canada_q'])
     # if adjustement is not possible, I fill the NaN values with the original Alberta data
     Alberta_df['adjusted_v'] = Alberta_df['adjusted_v'].fillna(Alberta_df['alberta_v'])
     Alberta_df['adjusted_q'] = Alberta_df['adjusted_q'].fillna(Alberta_df['alberta_q'])
@@ -53,6 +54,10 @@ def Alberta_to_CEPII(Alberta, Canada , CEPII):
 for year in range(2013, 2024):
     print(year)
     exports = pd.read_sql(f"SELECT * FROM dbo.statCanExportDataMonthly{year}", conn)
+    # CAD to USD conversion
+    exports = pd.merge(exports, USD_CAD, how='left', left_on='YearMonth', right_on='YearMonth')
+    exports['Value'] = exports['Value'] * exports['cad_to_usd']
+    exports.drop(columns=['cad_to_usd', 'ExchangeRateUSDtoCAD'], inplace=True)
     exports.ctyCode = exports.ctyCode.replace("TW", "CN") #Modifying Trades with Taiwan to trade with China to keep it consistent with the ComTrade and World Bank data
     exports = exports.groupby(['hs6Code', 'ctyCode', 'provCode'])[['Value', 'Quantity']].sum().reset_index()
     exports['Year'] = year
@@ -88,4 +93,14 @@ for year in range(2013, 2024):
     print(f'for the year {year} the number of rows in the CEPII data increased from {CEPII.shape[0]:,} to {CEPII2.shape[0]:,}')
     CEPII2.to_csv(f'../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y{year}_V202501_alberta.csv', index=False)
 
+
+
+
+import pandas as pd
+a = pd.read_csv('../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y2023_V202501_alberta.csv')
+a['k'] = a['k'].astype(str).str.zfill(6).str.slice(0,4).astype(int)
+a = a.groupby(['t', 'i', 'j', 'k'])[['v', 'q']].sum().reset_index()
+
+a = a.loc[a.k==2709]
+a.loc[a.j.isin([840, 842, 841])]
 
