@@ -9,7 +9,12 @@ import itertools
 ExporterKey = Tuple[int, int]
 ImporterKey = Tuple[int, int]
 CountryKey = Tuple[int, int]
-
+conn = pyodbc.connect(
+                        'DRIVER={ODBC Driver 17 for SQL Server};'
+                        'SERVER=c-goa-sql-10593;'
+                        'DATABASE=JET_TRDAT_UAT;'
+                        'Trusted_Connection=yes;'
+                    )
 
 
 def load_maps(
@@ -84,6 +89,7 @@ class TradeDataset(Dataset):
         Keyword arguments:
         - inferece_mode: bool: if True, load Alberta data for inference. Default False.
         - Alberta_path: str: path to Alberta data. Required if inference_mode is True.
+        - sql_conn: str: SQL connection pyodbc.connect.
         """
         df = pd.read_csv(
             trd_path,
@@ -98,8 +104,8 @@ class TradeDataset(Dataset):
             )
             self.Alberta_df = Alberta_df
             self.Alberta_df = Alberta_df.reset_index(drop=True)
-            self.Unify_Country_Codes()
-            self.prepare_final_Alberta_df()
+            self.Unify_Country_Codes(conn= kwargs.get('sql_conn'))
+            self.prepare_final_Alberta_df(conn= kwargs.get('sql_conn'))
         self.trd_feats = list(trd_feats)
         # compute mean/std for trade features
         feat_arr = self.df[self.trd_feats].to_numpy(dtype=np.float32)
@@ -149,13 +155,7 @@ class TradeDataset(Dataset):
             target
         )
 
-    def Unify_Country_Codes(self):
-        conn = pyodbc.connect(
-                        'DRIVER={ODBC Driver 17 for SQL Server};'
-                        'SERVER=c-goa-sql-10593;'
-                        'DATABASE=JET_TRDAT_UAT;'
-                        'Trusted_Connection=yes;'
-                    )
+    def Unify_Country_Codes(self, conn):
         # define a function where we get the actual name of the cocuntries if code is given and we get the code if the name is given
         Country_codes = pd.read_sql("SELECT * FROM dbo.countryCodesDescriptionStatCanUNComTradeUSCensusBureau", conn)
         Country_codes = Country_codes.loc[:, ['Country', 'ctyCode', 'UNComTradeCtyId']]
@@ -174,7 +174,7 @@ class TradeDataset(Dataset):
         self.code_to_country = dict(zip(Country_codes['UNComTradeCtyId'], Country_codes['Country']))
         self.country_to_code = dict(zip(Country_codes['Country'], Country_codes['UNComTradeCtyId']))
         self.ctyCode_to_country = dict(zip(Country_codes['ctyCode'], Country_codes['Country']))
-    def prepare_final_Alberta_df(self):
+    def prepare_final_Alberta_df(self, conn):
         # This function is used to prepare the Alberta dataframe for the final output
 
         # Adding ALberta and the rest of the world to the country_to_code and code_to_country

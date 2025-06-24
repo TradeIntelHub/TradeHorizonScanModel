@@ -11,7 +11,7 @@ class TradeHorizonScanModel(nn.Module):
         dim_imp: int,
         dim_cty: int,
         dropout_p: float = 0.2,
-        emb_hs: int = 64
+        emb_hs: int = 32
         #emb_yr: int = 16
     ) -> None:
         super().__init__()
@@ -45,6 +45,7 @@ class TradeHorizonScanModel(nn.Module):
 
         total_dim = 32 + 8 + 8 + 4 + emb_hs #+ emb_yr
         self.concat_model_head = nn.Sequential(
+            #nn.Linear(total_dim, 64),
             nn.Linear(total_dim, 64),
             nn.ReLU(),
             nn.Linear(64, 128),
