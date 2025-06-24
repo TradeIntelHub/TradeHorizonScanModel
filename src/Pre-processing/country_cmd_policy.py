@@ -79,7 +79,7 @@ data.reset_index(drop=True, inplace=True)
 
 
 # Handiling the date
-data['Date'] = data['Date Implemented'].fillna(data['Date Implemented'])
+data['Date'] = data['Date Implemented'].fillna(data['Date Announced'])
 # I assume if neither of the date values are present then the policy has been implemented for the whole period of the GTA data
 data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
 data['Date Removed'] = pd.to_datetime(data['Date Removed'], errors='coerce')
@@ -162,13 +162,16 @@ df = df.groupby(['importer', 'exporter', 'HS4', 'yrs']
                     )[['Harmful', 'Liberalizing']].sum().reset_index()
 print(f'{len(df):,}')
 
-
+D = df.copy()
 # Changin the country names to country codes
 countries_to_keep = pd.read_csv('../TradeHorizonScan/src/Pre-processing/data/country_list.csv')
 countries_to_keep = countries_to_keep[['Country', 'PartnerCode']]
-countries_to_keep = countries_to_keep.loc[countries_to_keep.Country.duplicated(keep='first') ]
 countries_to_keep = countries_to_keep.loc[countries_to_keep.Country.drop_duplicates().index].reset_index(drop=True)
 countries_to_keep
+duplicated_country_mapping = pd.read_csv('../TradeHorizonScan/src/Pre-processing/data/duplicated_Country_mapping.csv')
+duplicated_country_mapping = dict(zip(duplicated_country_mapping['Key'], duplicated_country_mapping['Value']))
+countries_to_keep['PartnerCode'] = countries_to_keep['PartnerCode'].replace(duplicated_country_mapping)
+
 df = df.merge(countries_to_keep, left_on='importer', right_on='Country', how='left')
 df.drop(columns=['importer', 'Country'], inplace=True)
 df.rename(columns={'PartnerCode': 'importer'}, inplace=True)

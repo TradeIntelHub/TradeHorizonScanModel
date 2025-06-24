@@ -2,6 +2,23 @@
 import pandas as pd
 import numpy as np
 import pyodbc
+import csv
+import json
+
+
+duplicated_Country_mapping = { '56': 58,
+    '756': 757,
+    '250': 251,
+    '356': 699,
+    '841': 842,
+    '840': 842,
+    '704': 868
+}
+with open("../TradeHorizonScan/src/Pre-processing/data/duplicated_Country_mapping.csv", mode="w", newline="") as file:
+    writer = csv.writer(file)
+    writer.writerow(["Key", "Value"])  # optional header
+    for key, value in duplicated_Country_mapping.items():
+        writer.writerow([key, value])
 
 
 conn = pyodbc.connect(
@@ -90,17 +107,9 @@ for year in range(2013, 2024):
     Alberta = Alberta.loc[:, CEPII.columns]
     Alberta['i'] = Alberta.i.replace('Alberta', 9999)
     CEPII2 = pd.concat([CEPII, Alberta], ignore_index=True)
+    # Mapping the duplicated countries keys to the correct values
+    CEPII2['j'] = CEPII2['j'].astype(str).replace(duplicated_Country_mapping)
+    CEPII2['i'] = CEPII2['i'].astype(str).replace(duplicated_Country_mapping)
+    CEPII2 = CEPII2.groupby(['t', 'i', 'j', 'k'])[['v', 'q']].sum().reset_index() #To Ensure no duplicated records
     print(f'for the year {year} the number of rows in the CEPII data increased from {CEPII.shape[0]:,} to {CEPII2.shape[0]:,}')
     CEPII2.to_csv(f'../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y{year}_V202501_alberta.csv', index=False)
-
-
-
-
-import pandas as pd
-a = pd.read_csv('../TradeHorizonScan/src/Pre-processing/data/CEPII/BACI_HS12_Y2023_V202501_alberta.csv')
-a['k'] = a['k'].astype(str).str.zfill(6).str.slice(0,4).astype(int)
-a = a.groupby(['t', 'i', 'j', 'k'])[['v', 'q']].sum().reset_index()
-
-a = a.loc[a.k==2709]
-a.loc[a.j.isin([840, 842, 841])]
-
