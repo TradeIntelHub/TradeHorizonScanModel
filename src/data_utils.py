@@ -102,8 +102,8 @@ class TradeDataset(Dataset):
                 kwargs['Alberta_path'],
                 usecols=[*['importer', 'exporter', 'hsCode', 'year', 'MA_value'], *trd_feats]
             )
-            self.Alberta_df = Alberta_df
-            self.Alberta_df = Alberta_df.reset_index(drop=True)
+            # WE use hte latest CEPII data (2023) to make predictions of 2024
+            self.Alberta_df = Alberta_df.loc[Alberta_df.year == 2023].reset_index(drop=True)
             self.Unify_Country_Codes(conn= kwargs.get('sql_conn'))
             self.prepare_final_Alberta_df(conn= kwargs.get('sql_conn'))
         self.trd_feats = list(trd_feats)
@@ -174,6 +174,89 @@ class TradeDataset(Dataset):
         self.code_to_country = dict(zip(Country_codes['UNComTradeCtyId'], Country_codes['Country']))
         self.country_to_code = dict(zip(Country_codes['Country'], Country_codes['UNComTradeCtyId']))
         self.ctyCode_to_country = dict(zip(Country_codes['ctyCode'], Country_codes['Country']))
+
+    def prepare_final_Alberta_df(self, conn):
+    
+        # This function is used to prepare the Alberta dataframe for the final output
+
+        # Adding ALberta and the rest of the world to the country_to_code and code_to_country
+        self.country_to_code['Alberta'] = self.Alberta_df['exporter'].unique()[0]
+        self.country_to_code['Rest of the World'] = 9998
+        self.country_to_code['Canada'] = 124
+        self.code_to_country[124] = 'Canada'
+        self.code_to_country[self.Alberta_df['exporter'].unique()[0]] = 'Alberta'
+        self.code_to_country[9998] = 'Rest of the World'
+
+
+
+        unique_importer_codes = list(self.code_to_country.keys())
+        unique_importer_codes.remove(9999)
+        unique_importer_codes.remove(124)
+        unique_years = [self.df['year'].max()]
+        unique_hs_codes = self.df['hsCode'].unique()
+
+        Alberta_full_trade_matrix = self.Alberta_df.copy()
+
+
+        # Getting the real trade data for hte Alberta in 2024 (prediction year)
+        latest_year = 2024
+        Alberta_Actual_exports = pd.read_sql(f"SELECT * FROM dbo.statCanExportDataMonthly{latest_year}", conn)
+        Alberta_Actual_exports = Alberta_Actual_exports.loc[Alberta_Actual_exports['provCode'] == 'AB'].reset_index(drop=True)
+        Alberta_Actual_exports.ctyCode = Alberta_Actual_exports.ctyCode.replace("TW", "CN")
+        Alberta_Actual_exports['hsCode'] = Alberta_Actual_exports['hs6Code'].astype(str).str.zfill(6).str.slice(0, 4).astype(int)
+        Alberta_Actual_exports['year'] = latest_year
+        Alberta_Actual_exports['exporter'] = self.Alberta_df.exporter.unique()[0]
+
+        Alberta_Actual_exports['importer'] = Alberta_Actual_exports['ctyCode'].map(self.ctyCode_to_country).map(self.country_to_code)
+        Alberta_Actual_exports.loc[Alberta_Actual_exports.importer.isna(), 'importer'] = 9998
+        Alberta_Actual_exports['importer'] = Alberta_Actual_exports['importer'].astype(int)
+        Alberta_Actual_exports.drop(columns=['stateCode', 'Quantity', 'provCode', 'hs6Code', 'YearMonth', 'ctyCode'], inplace=True)
+        Alberta_Actual_exports = Alberta_Actual_exports.groupby(['hsCode', 'year', 'importer', 'exporter'], as_index=False).agg({'Value': 'sum'})
+        Alberta_Actual_exports['Value'] = Alberta_Actual_exports['Value']/1000
+        print(f'Alberta had {len(Alberta_Actual_exports):,} actual trade flows ({len(Alberta_Actual_exports.hsCode.unique())} HS codes, {Alberta_Actual_exports.year.unique()[0]} year, {len(Alberta_Actual_exports.importer.unique())} importers)')
+        Alberta_Actual_exports.rename(columns={'Value': f'Actual_Alberta_{latest_year}_Values'}, inplace=True)
+        # Merging the Alberta trade data with the Alberta full trade matrix
+        Alberta_full_trade_matrix = pd.merge(Alberta_full_trade_matrix, Alberta_Actual_exports.drop('year', axis=1), on=['importer', 'exporter','hsCode'], how='left')
+        RoW = Alberta_Actual_exports.loc[Alberta_Actual_exports.importer == 9998]
+        RoW = RoW[RoW.Actual_Alberta_2024_Values>0]
+        RoW = RoW[['hsCode', 'Actual_Alberta_2024_Values']]
+        self.rest_of_the_world_hsCode_to_Trade_Value_2024 = dict(zip(RoW['hsCode'], RoW['Actual_Alberta_2024_Values']))
+        Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[(Alberta_full_trade_matrix.importer != 9998)]
+
+        print(f'In {latest_year}, Alberta has only traded {len(Alberta_Actual_exports.hsCode.unique())} unique HS4 codes out of the {len(Alberta_full_trade_matrix.hsCode.unique())} HS4 codes.')
+        l = len(Alberta_full_trade_matrix)
+        Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.hsCode.isin(Alberta_Actual_exports.hsCode.unique())]
+        print(f'As a result, out of the {l:,} possible trade flows, Alberta only has the potential of {len(Alberta_full_trade_matrix):,} trade flows.')
+        Alberta_full_trade_matrix =  Alberta_full_trade_matrix.loc[:, list(self.Alberta_df.columns) + ['Actual_Alberta_2024_Values']]
+        l = len(Alberta_full_trade_matrix)
+        Alberta_full_trade_matrix = Alberta_full_trade_matrix.loc[~Alberta_full_trade_matrix.MA_TotalImportofCmdbyReporter.isna()]
+        print(f'Out of the {l:,} possible trade flows, There is only demand by importer in {len(Alberta_full_trade_matrix):,} trade flows.')
+        print(f'The database still has many nan values for the trades that did not happen. As a first step, I use the Canada numbers to fill in features with missing values for Alberta')
+        print(f'{(Alberta_full_trade_matrix.isna().sum(axis=1)>0).sum():,} rows with Nans out of {len(Alberta_full_trade_matrix):,} possible trade flows')
+
+        # NO trade happened , so value is 0
+        Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.MA_value.isna(), 'MA_value'] = 0
+        Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.Actual_Alberta_2024_Values.isna(), 'Actual_Alberta_2024_Values'] = 0
+
+
+        print('After filling in the missing values with the Canada numbers, we still have some missing values related to the average unit price of the trade which will be resolved by flagging them')
+        print(f'{(Alberta_full_trade_matrix.isna().sum(axis=1)>0).sum():,} rows with Nans out of {len(Alberta_full_trade_matrix):,} possible trade flows')
+        Alberta_full_trade_matrix.MA_AvgUnitPrice = Alberta_full_trade_matrix.MA_AvgUnitPrice.fillna(0)
+        Alberta_full_trade_matrix.loc[Alberta_full_trade_matrix.MA_AvgUnitPrice == 0, 'MA_AvgUnitPriceFlags'] = True
+        print('Now the only variable with Nans is the MA_Trade_Complementarity which I am going to fill with the mean of the column (for 30 countries)')
+        print('Also, very few missing values for MA_Partner_Revealed_Comparative_Advantage which are filled with the mean of the column (for 30 countries)')
+        Alberta_full_trade_matrix.MA_Trade_Complementarity = Alberta_full_trade_matrix.MA_Trade_Complementarity.fillna(self.df.MA_Trade_Complementarity.mean())
+        Alberta_full_trade_matrix.MA_Partner_Revealed_Comparative_Advantage = Alberta_full_trade_matrix.MA_Partner_Revealed_Comparative_Advantage.fillna(self.df.MA_Partner_Revealed_Comparative_Advantage.mean())
+        self.Alberta_df = Alberta_full_trade_matrix
+        self.Alberta_df.reset_index(drop=True, inplace=True)
+        print(f'Now we have {len(self.Alberta_df):,} trade flows (Actual and Potential) with  {self.Alberta_df.isna().sum(axis=0).sum()} missing values')
+        return
+
+
+
+
+
+        '''
     def prepare_final_Alberta_df(self, conn):
         # This function is used to prepare the Alberta dataframe for the final output
 
@@ -300,3 +383,4 @@ class TradeDataset(Dataset):
 
 
 
+'''

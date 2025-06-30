@@ -67,8 +67,8 @@ val_loader = DataLoader(Subset(dataset, val_idx), batch_size=batch_size, shuffle
 
 
 # Setting the final training parameters
-early_stopping = EarlyStopping(patience=50, delta=0)
-epochs = 100
+early_stopping = EarlyStopping(patience=100, delta=0)
+epochs = 40
 all_train_losses = []
 all_val_losses = []
 
@@ -130,13 +130,24 @@ for epoch in range(epochs):
         print("Early stopping")
         break
 
-# Get the data related ot Harmful liberalizing policies:
-# https://globaltradealert..org/api-access
+
+
+
+
+
+
+####################################################
+# There are nans in the dataset.Alberta_df
+# For Harmful and Liberalising
+# Try to fix them using the original GTA dataset
+# IF there are still nans, then fill them with 0
+####################################################
+
 
 
 '''
 # Loading the best model
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint62.pth')
+checkpoint = torch.load('../TradeHorizonScan/models/checkpoint243.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -181,18 +192,6 @@ fig.add_trace(go.Scatter(
     line=dict(width=2, color='#ff7f0e', dash='dash'),
     hovertemplate='Epoch: %{x}<br>Loss: %{y:,.0f}<extra></extra>'
 ))
-fig.add_trace(go.Scatter(
-    x=list(range(1, len(all_val_losses) + 1)), 
-    y=np.array(all_val_losses) * 0.2 + np.array(all_train_losses) * 0.8,
-    mode='lines+markers',
-    name='Total Loss',
-    marker=dict(
-        size=8,
-        symbol='circle',         # ← try 'circle', 'x', 'triangle-up', 'cross', etc.
-        color='mediumblue',    # ← marker color
-        line=dict(width=1, color='black')  # optional outline for visibility
-    )
-))
 fig.update_layout(
     template='plotly_white',
     title={
@@ -234,7 +233,7 @@ fig.update_layout(
     margin=dict(l=80, r=80, t=100, b=80),
     annotations=[
         dict(
-            text=f'Learning Rate: {lr}, Batch Size: {batch_size}, Validation set R²: {r2.item():.3f}',
+            text=f'Learning Rate: {lr}, Batch Size: {batch_size}',
             showarrow=False,
             xref='paper',
             yref='paper',
@@ -274,7 +273,7 @@ fig.update_layout(
         showgrid=True,
         gridcolor='#E5E5E5',
         zeroline=True,
-        range=[0, max(actuals) * 1.05],     # 👈 keep this here
+        range=[0, max(actuals) * 1.05],     
         scaleanchor="y",
         scaleratio=1
     ),

@@ -47,7 +47,8 @@ dataset = TradeDataset(
     cty_map = country_map,
     trd_feats = trade_feats,
     inference_mode = True,
-    Alberta_path = '../TradeHorizonScan/data/MA_Trade_Alberta.csv'
+    Alberta_path = '../TradeHorizonScan/data/MA_Trade_Alberta.csv',
+    sql_conn = conn
 )
 device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
@@ -56,7 +57,7 @@ model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
     dim_imp = next(iter(importer_map.values())).shape[0],
     dim_cty = next(iter(country_map.values())).shape[0]).to(device)
 
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint225.pth')
+checkpoint = torch.load('../TradeHorizonScan/models/checkpoint243.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 epoch = checkpoint['epoch']
 all_train_losses = checkpoint['all_train_losses']
@@ -193,17 +194,23 @@ def plot_trade_predictions(Results, name_of_commodity):
     fig.show()
 
 ##################################
-# make sure the printed numbers make sense
+# Ensure Alberta_df has high quality data
+# Investigate the model predictions before adjusting them for the Alberta total supply value. See if they make sense before adjusting.
 ##################################
 
 
 
 
-# Oil: 2709
-# Wheat: 1001
-HS4Code = (2709,  "Wheat")
+
+
+# Add HS4 codes to the title
+HS4Code = (201, "Fresh or Chilled Beef")
+HS4Code = (1001,  "Wheat")
+HS4Code = (2709, "Crude Oil")
+HS4Code = (1205, "Canola")
 results = get_trade_predictions(HS4Code[0])
 plot_trade_predictions(results, HS4Code[1])
+
 
 
 # Getting the total trade for all HS4 codes
