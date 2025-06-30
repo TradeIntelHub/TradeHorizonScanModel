@@ -6,6 +6,7 @@ from src.model import TradeHorizonScanModel
 from src.data_utils import load_maps, TradeDataset
 from torch.utils.data import DataLoader
 from torch.utils.data import DataLoader, Subset
+import math
 import torch
 import torch.nn as nn
 from typing import List, Dict, Tuple
@@ -90,7 +91,9 @@ def get_trade_predictions(HS4Code):
             total_import_MA.append(dataset.Alberta_df.iloc[i].MA_TotalImportofCmdbyReporter)
     Results = pd.DataFrame((countries,actual_2024_trades, predicted_trades, actual_MA_values, total_import_MA ), 
                 index=['Country', 'Actual_2024_Trade_CAD', 'Model_Predicted_Trade_USD', 'MA_Value_USD', 'Importers_Total_Imports_MA_USD']).T
-    Results['Adjusted_Predicted_Trade_CAD'] = Results['Model_Predicted_Trade_USD'] * (Results['Actual_2024_Trade_CAD'].sum() / Results['Model_Predicted_Trade_USD'].sum())
+    Results['Model_Predicted_Trade_CAD'] = Results['Model_Predicted_Trade_USD'] * USDCAD
+    Results['Adjusted_Predicted_Trade_CAD'] = np.nan
+
     RoW_Trade = 0
     if HS4Code in dataset.rest_of_the_world_hsCode_to_Trade_Value_2024.keys():
         RoW_Trade = dataset.rest_of_the_world_hsCode_to_Trade_Value_2024[HS4Code]
@@ -115,12 +118,14 @@ def get_trade_predictions(HS4Code):
                 'Adjusted_Predicted_Trade_CAD':  np.nan
             }])
             Results = pd.concat([Results, new_row], ignore_index=True)
+    Results['Adjusted_Predicted_Trade_CAD'] = Results['Model_Predicted_Trade_USD'] * (Results['Actual_2024_Trade_CAD'].sum() / Results['Model_Predicted_Trade_USD'].sum())
     Results.sort_values(by='Actual_2024_Trade_CAD', ascending=False, inplace=True)
     Results.reset_index(drop=True, inplace=True)
     Results.iloc[:, 1:] = Results.iloc[:, 1:] * 1000 # Now everything is in dollars (not in thousands of dollars anymore)
+    assert math.isclose(Results['Adjusted_Predicted_Trade_CAD'].sum(), Results['Actual_2024_Trade_CAD'].sum(), abs_tol =5), "The adjusted predicted trade does not match the actual trade"
     return Results
 
-def plot_trade_predictions(Results, name_of_commodity):
+def plot_trade_predictions(Results, name_of_commodity, HS4Code, include_raw_model_predictions=False):
     Results = Results.set_index('Country')
     Results = Results.reindex(
         [country for country in Results.index if country != 'RoW'] + ['RoW']
@@ -128,7 +133,9 @@ def plot_trade_predictions(Results, name_of_commodity):
     customdata = np.stack([
     Results['Importers_Total_Imports_MA_USD'].values * USDCAD,
     Results['Actual_2024_Trade_CAD'].values /(Results['Importers_Total_Imports_MA_USD'].values * USDCAD) * 100,
-    Results['Adjusted_Predicted_Trade_CAD'].values /(Results['Importers_Total_Imports_MA_USD'].values * USDCAD) * 100
+    Results['Adjusted_Predicted_Trade_CAD'].values /(Results['Importers_Total_Imports_MA_USD'].values * USDCAD) * 100,
+    Results['Model_Predicted_Trade_CAD'].values /(Results['Importers_Total_Imports_MA_USD'].values * USDCAD) * 100,
+    Results['Actual_2024_Trade_CAD'].sum() * np.ones(Results.shape[0])  # Alberta's total exports
                             ], axis=-1)
     
     fig = go.Figure()
@@ -142,28 +149,47 @@ def plot_trade_predictions(Results, name_of_commodity):
         hovertemplate=(
             'Country: %{x}<br>' +
             'Actual Trade: $%{y:,.0f}<br>' +
-            'Total Imports (MA): $%{customdata[0]:,.0f}<br>' +
-            'Share of Total: %{customdata[1]:.1f}%<extra></extra>'
+            'Total Imports (3yr-MA): $%{customdata[0]:,.0f}<br>' +
+            'Share of Total: %{customdata[1]:.1f}%<br>' + 
+            "Alberta's Total Exports: $%{customdata[4]:,.0f}<extra></extra>" 
         )
     ))
 
     fig.add_trace(go.Bar(
         x=Results['Country'],
         y=Results['Adjusted_Predicted_Trade_CAD'],
-        name='Adjusted Predicted Trade',
+        name='Model Predicted Trade',
         marker_color='darkorange',
         customdata=customdata,
         hovertemplate=(
             'Country: %{x}<br>' +
             'Predicted Trade: $%{y:,.0f}<br>' +
-            'Total Imports (MA): $%{customdata[0]:,.0f}<br>' +
-            'Share of Total: %{customdata[2]:.1f}%<extra></extra>'
+            'Total Imports (3yr-MA): $%{customdata[0]:,.0f}<br>' +
+            'Share of Total: %{customdata[2]:.1f}%<br>'+ 
+            "Alberta's Total Exports: $%{customdata[4]:,.0f}<extra></extra>" 
         )
     ))
 
+    if include_raw_model_predictions:
+        fig.add_trace(go.Bar(
+            x=Results['Country'],
+            y=Results['Model_Predicted_Trade_CAD'],
+            name='Raw Model Predicted Trade',
+            marker_color='lightgreen',
+            customdata=customdata,
+            hovertemplate=(
+                'Country: %{x}<br>' +
+                'Raw Model Predicted Trade: $%{y:,.0f}<br>' +
+                'Total Imports (3yr-MA): $%{customdata[0]:,.0f}<br>' +
+                'Share of Total: %{customdata[3]:.1f}%<br>>'+ 
+            "Alberta's Total Exports: $%{customdata[4]:,.0f}<extra></extra>" 
+            )
+        ))
+
+
     fig.update_layout(
         title={
-            'text': f'Actual vs Adjusted Predicted Trade for {name_of_commodity} (HS4 level, CAD)',
+            'text': f'Actual vs Model Predicted Trade for {name_of_commodity} (HS4: {HS4Code}, CAD)',
             'x': 0.5,
             'xanchor': 'center',
             'font': dict(size=22)
@@ -196,6 +222,7 @@ def plot_trade_predictions(Results, name_of_commodity):
 ##################################
 # Ensure Alberta_df has high quality data
 # Investigate the model predictions before adjusting them for the Alberta total supply value. See if they make sense before adjusting.
+# Train a model on the Top 50 countries instead of top alberta partners!
 ##################################
 
 
@@ -208,10 +235,18 @@ HS4Code = (201, "Fresh or Chilled Beef")
 HS4Code = (1001,  "Wheat")
 HS4Code = (2709, "Crude Oil")
 HS4Code = (1205, "Canola")
+HS4Code = (9603, "BROOMS")
+HS4Code = (409, "Honey")
+HS4Code = (1902, "Pasta")
+HS4Code = (1004, "Oats")
+HS4Code = (102, "Cattle")
 results = get_trade_predictions(HS4Code[0])
-plot_trade_predictions(results, HS4Code[1])
+plot_trade_predictions(results, HS4Code[1], HS4Code[0], include_raw_model_predictions=False)
 
-
+results
+results['Actual_2024_Trade_CAD'].sum()
+results['Importers_Total_Imports_MA_USD'].values * USDCAD
+dataset.Alberta_df.loc[dataset.Alberta_df.hsCode == HS4Code[0], 'MA_TotalExportofCmdbyPartner']
 
 # Getting the total trade for all HS4 codes
 dfs = []
