@@ -22,9 +22,9 @@ Country_codes = pd.read_sql("SELECT * FROM dbo.countryCodesDescriptionStatCanUNC
 
 
 exporter_map, importer_map, country_map = load_maps(
-        '../TradeHorizonScan/data/MA_Exporter.csv', 
-        '../TradeHorizonScan/data/MA_Importer.csv',
-        '../TradeHorizonScan/data/MA_Country.csv'
+        '../TradeHorizonScanModel/data/MA_Exporter.csv', 
+        '../TradeHorizonScanModel/data/MA_Importer.csv',
+        '../TradeHorizonScanModel/data/MA_Country.csv'
     )
 trade_feats: List[str] = [
         'MA_AvgUnitPrice',
@@ -42,13 +42,13 @@ trade_feats: List[str] = [
         'Covid'
     ]
 dataset = TradeDataset(
-    trd_path = '../TradeHorizonScan/data/MA_Trade.csv', 
+    trd_path = '../TradeHorizonScanModel/data/MA_Trade.csv', 
     exp_map = exporter_map,
     imp_map = importer_map,
     cty_map = country_map,
     trd_feats = trade_feats,
     inference_mode = True,
-    Alberta_path = '../TradeHorizonScan/data/MA_Trade_Alberta.csv',
+    Alberta_path = '../TradeHorizonScanModel/data/MA_Trade_Alberta.csv',
     sql_conn = conn
 )
 device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -58,7 +58,7 @@ model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
     dim_imp = next(iter(importer_map.values())).shape[0],
     dim_cty = next(iter(country_map.values())).shape[0]).to(device)
 
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint243.pth')
+checkpoint = torch.load('../TradeHorizonScanModel/models/checkpoint243.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 epoch = checkpoint['epoch']
 all_train_losses = checkpoint['all_train_losses']
@@ -312,4 +312,4 @@ results['diff'] = results['Adjusted_Predicted_Trade_CAD'] - results['Actual_2024
 results.sort_values(by='diff', ascending=False, inplace=True)
 results.head(21)
 
-results.to_csv('../TradeHorizonScan/data/Polymers_of_Ethylene_Trade_Predictions.csv', index=False)
+results.to_csv('../TradeHorizonScanModel/data/Polymers_of_Ethylene_Trade_Predictions.csv', index=False)
