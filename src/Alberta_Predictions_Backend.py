@@ -125,11 +125,16 @@ def get_trade_predictions(HS4Code):
     assert math.isclose(Results['Adjusted_Predicted_Trade_CAD'].sum(), Results['Actual_2024_Trade_CAD'].sum(), abs_tol =5), "The adjusted predicted trade does not match the actual trade"
     return Results
 
-def plot_trade_predictions(Results, name_of_commodity, HS4Code, include_raw_model_predictions=False):
+def plot_trade_predictions(Results, name_of_commodity, HS4Code, include_RoW=True, include_raw_model_predictions=False):
+    
     Results = Results.set_index('Country')
     Results = Results.reindex(
         [country for country in Results.index if country != 'RoW'] + ['RoW']
-    ).reset_index()
+                                ).reset_index()
+
+    if not include_RoW:
+        Results = Results.loc[Results.Country != 'RoW',:]
+    
     customdata = np.stack([
     Results['Importers_Total_Imports_MA_USD'].values * USDCAD,
     Results['Actual_2024_Trade_CAD'].values /(Results['Importers_Total_Imports_MA_USD'].values * USDCAD) * 100,
@@ -200,7 +205,7 @@ def plot_trade_predictions(Results, name_of_commodity, HS4Code, include_raw_mode
             tickfont=dict(size=12),
         ),
         yaxis=dict(
-            title='Trade Value',
+            title='Export Value',
             tickfont=dict(size=12)
         ),
         legend=dict(
@@ -240,22 +245,71 @@ HS4Code = (409, "Honey")
 HS4Code = (1902, "Pasta")
 HS4Code = (1004, "Oats")
 HS4Code = (102, "Cattle")
-results = get_trade_predictions(HS4Code[0])
-plot_trade_predictions(results, HS4Code[1], HS4Code[0], include_raw_model_predictions=False)
+HS4Code = (3901, "Polymers of Ethylene")
 
-results
-results['Actual_2024_Trade_CAD'].sum()
-results['Importers_Total_Imports_MA_USD'].values * USDCAD
-dataset.Alberta_df.loc[dataset.Alberta_df.hsCode == HS4Code[0], 'MA_TotalExportofCmdbyPartner']
+
+results = get_trade_predictions(HS4Code[0])
+plot_trade_predictions(results, HS4Code[1], HS4Code[0], include_RoW=False, include_raw_model_predictions=False)
+
+
 
 # Getting the total trade for all HS4 codes
 dfs = []
 for HS4Code in dataset.Alberta_df.hsCode.unique():
-    dfs.append(get_trade_predictions(HS4Code))
-df_total = sum(df.set_index('Country').fillna(0) for df in dfs).reset_index()
-df_total.sort_values(by='Actual_2024_Trade', ascending=False, inplace=True)
-df_total = df_total.round(0)
-df_total.loc[df_total.Country!="RoW"].sum()
-plot_trade_predictions(df_total, 'Total')
+    try:
+        a = get_trade_predictions(HS4Code)
+    except Exception as e:
+        print(f"HS4Code {HS4Code}: is not part of the UnComtrade dataset, skipping the model prediction for this HS4Code")
+        print('Will put the Actual numbers as the model prediction to keep the total trade value consistent')
+        a = dataset.Alberta_df[dataset.Alberta_df.hsCode == HS4Code]
+        a = a[['importer', 'Actual_Alberta_2024_Values']]
+        a = a.replace({'importer': dataset.code_to_country})
+        a.rename(columns={'importer': 'Country', 'Actual_Alberta_2024_Values': 'Actual_2024_Trade_CAD'}, inplace=True)
+        a['Model_Predicted_Trade_CAD'] = a['Actual_2024_Trade_CAD'] 
+        a['Adjusted_Predicted_Trade_CAD'] = a['Actual_2024_Trade_CAD'] 
+        a['Importers_Total_Imports_MA_USD'] = a['Actual_2024_Trade_CAD'] 
+        a['Model_Predicted_Trade_USD'] = a['Actual_2024_Trade_CAD'] 
+        a['MA_Value_USD'] = a['Actual_2024_Trade_CAD'] 
+        a = a[['Country', 'Actual_2024_Trade_CAD', 'Model_Predicted_Trade_USD', 'MA_Value_USD', 'Importers_Total_Imports_MA_USD','Model_Predicted_Trade_CAD', 'Adjusted_Predicted_Trade_CAD']]
+        a.reset_index(drop=True, inplace=True)
+
+    a['HS4Code'] = HS4Code
+    dfs.append(a)
+
+df_total = pd.concat(dfs, ignore_index=True)
+df_total = df_total.groupby('Country', as_index=False).sum()
+df_total.drop(columns=['HS4Code'], inplace=True)
+df_total.sort_values(by='Actual_2024_Trade_CAD', ascending=False, inplace=True)
+df_total.sum()
+plot_trade_predictions(df_total, 'Total', "Total", include_RoW=False, include_raw_model_predictions=False)
+
+# Let's take a look at the aggregated difference betweeen "Model Predicted Trade CAD" and the "Adjusted Predicted Trade CAD"
+plot_trade_predictions(df_total, 'Total', "Total", include_RoW=False, include_raw_model_predictions=True)
 
 
+
+
+# Researching Malaysia:
+# As an example for the Presentation
+dfs
+df = pd.concat(dfs, ignore_index=True)
+df = df.loc[df.Country == "Malaysia"]
+df['diff'] = df['Adjusted_Predicted_Trade_CAD'] - df['Actual_2024_Trade_CAD']
+df.sort_values(by='diff', ascending=False, inplace=True)
+
+df.head(20)
+
+
+
+
+
+
+
+# Researching the Polymers of Ethylene
+HS4Code = (3901, "Polymers of Ethylene")
+results = get_trade_predictions(HS4Code[0])
+results['diff'] = results['Adjusted_Predicted_Trade_CAD'] - results['Actual_2024_Trade_CAD']
+results.sort_values(by='diff', ascending=False, inplace=True)
+results.head(21)
+
+results.to_csv('../TradeHorizonScan/data/Polymers_of_Ethylene_Trade_Predictions.csv', index=False)
