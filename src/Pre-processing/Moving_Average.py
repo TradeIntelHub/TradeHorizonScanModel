@@ -131,7 +131,15 @@ print(f'Number of Nan values before the transformation: {a.isna().sum().sum():,}
 # https://www.nm.org/healthbeat/medical-advances/new-therapies-and-drug-trials/covid-19-pandemic-timeline
 # Pendemic started in March 2020 and ended in May 2023
 # 2020, 2021, and 2022 are flagged as Covid years
+# however, there will be spillover effect into 2023 and 2024. So best solution is to before calculating moving averages is to do a binary 0, 1 for [2020, 2021, 2022].
+# Then after the Moving Average calculations you would see a value of 1/3 for 2024 for instance!
 data['Covid'] = np.where(data['year'].isin([2020, 2021, 2022]), True, False)
+'''
+############################################################################
+FIX COVID FLAG!
+############################################################################
+'''
+raise NotImplementedError("Fix the Covid Flag issue in Moving_Average.py")
 
 
 # Rounding the values to 3 decimal places
