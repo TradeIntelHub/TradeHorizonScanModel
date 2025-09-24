@@ -6,11 +6,17 @@ import torch
 import torch.nn as nn
 from typing import List, Dict, Tuple
 import numpy as np
+import pandas as pd
+import json
+
+
+with open('../TradeHorizonScanModel/src/model_parameters.json', 'r') as f:
+    model_parameters = json.load(f)
 
 exporter_map, importer_map, country_map = load_maps(
-        '../TradeHorizonScan/data/MA_Exporter.csv', 
-        '../TradeHorizonScan/data/MA_Importer.csv',
-        '../TradeHorizonScan/data/MA_Country.csv'
+        '../TradeHorizonScanModel/data/MA_Exporter.csv', 
+        '../TradeHorizonScanModel/data/MA_Importer.csv',
+        '../TradeHorizonScanModel/data/MA_Country.csv'
     )
 trade_feats: List[str] = [
         'MA_AvgUnitPrice',
@@ -28,7 +34,7 @@ trade_feats: List[str] = [
         'Covid'
     ]
 dataset = TradeDataset(
-    trd_path = '../TradeHorizonScan/data/MA_Trade.csv', 
+    trd_path = '../TradeHorizonScanModel/data/MA_Trade.csv', 
     exp_map = exporter_map,
     imp_map = importer_map,
     cty_map = country_map,
@@ -40,14 +46,17 @@ model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
     dim_imp = next(iter(importer_map.values())).shape[0],
     dim_cty = next(iter(country_map.values())).shape[0])
 
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint200.pth')
+
+
+checkpoint_address = '../TradeHorizonScanModel/models/' + f'{model_parameters["Best_checkpoint"]}'
+checkpoint = torch.load(checkpoint_address)
 model.load_state_dict(checkpoint['model_state_dict'])
 lr = 1e-3
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
 epoch = checkpoint['epoch']
-train_losses = checkpoint['loss']
-
+train_losses = checkpoint['all_train_losses']
+val_losses = checkpoint['all_val_losses']
 
 model.eval()
 keys = list(dataset.hs_map.keys())
@@ -59,6 +68,38 @@ hs_embedding = dict(zip(keys, hs_emb))
 
 
 hs_embedding = {str(k).zfill(4): v for k, v in hs_embedding.items()}
+
+
+
+
+# Applying PCA to reduce dimensions for visualization
+from sklearn.decomposition import PCA
+pca = PCA(n_components=2)
+hs_emb_2d = pca.fit_transform(np.stack(list(hs_embedding.values())))
+hs_emb_2d = {k: v for k, v in zip(hs_embedding.keys(), hs_emb_2d)}
+
+# Visualizing the embeddings 
+import plotly.express as px
+df = pd.DataFrame({
+    'HSCode': list(hs_emb_2d.keys()),
+    'Component 1': [v[0] for v in hs_emb_2d.values()],
+    'Component 2': [v[1] for v in hs_emb_2d.values()]
+})
+
+fig = px.scatter(df, x='Component 1', y='Component 2', text='HSCode')
+fig.update_traces(textposition='top center')
+fig.show()
+
+
+
+
+
+
+
+
+
+
+
 
 from collections import defaultdict
 prefix_groups = defaultdict(list)
@@ -113,4 +154,4 @@ def get_top_n_similar_codes(hs_embedding, code, n=5):
     return similarities[:n]  # Return top n similar codes
 
 
-get_top_n_similar_codes(hs_embedding, '2711', n=5)
+get_top_n_similar_codes(hs_embedding, '0201', n=5)
