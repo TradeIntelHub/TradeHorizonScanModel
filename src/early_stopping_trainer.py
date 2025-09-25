@@ -14,6 +14,11 @@ import time
 import plotly.graph_objects as go
 import plotly.express as px
 from torcheval.metrics import R2Score
+import json
+
+with open('../TradeHorizonScanModel/src/model_parameters.json', 'r') as f:
+    model_parameters = json.load(f)
+
 
 # Loading the data and maps
 exporter_map, importer_map, country_map = load_maps(
@@ -132,9 +137,10 @@ for epoch in range(epochs):
 
 
 
-
-
-
+# Write down the best checkpoint name to model_parameters.json
+model_parameters['Best_checkpoint'] = 'checkpoint5000.pth'
+with open('../TradeHorizonScanModel/src/model_parameters.json', 'w') as f:
+    json.dump(model_parameters, f, indent=4)
 
 ####################################################
 # There are nans in the dataset.Alberta_df
@@ -145,9 +151,17 @@ for epoch in range(epochs):
 
 
 
+
+
+
 '''
 # Loading the best model
-checkpoint = torch.load('../TradeHorizonScan/models/checkpoint243.pth')
+with open('../TradeHorizonScanModel/src/model_parameters.json', 'r') as f:
+    model_parameters = json.load(f)
+
+
+checkpoint_address = '../TradeHorizonScanModel/models/' + f'{model_parameters["Best_checkpoint"]}'
+checkpoint = torch.load(checkpoint_address)
 model.load_state_dict(checkpoint['model_state_dict'])
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])

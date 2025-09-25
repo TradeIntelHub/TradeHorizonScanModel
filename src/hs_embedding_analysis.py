@@ -12,7 +12,6 @@ import json
 
 with open('../TradeHorizonScanModel/src/model_parameters.json', 'r') as f:
     model_parameters = json.load(f)
-
 exporter_map, importer_map, country_map = load_maps(
         '../TradeHorizonScanModel/data/MA_Exporter.csv', 
         '../TradeHorizonScanModel/data/MA_Importer.csv',
@@ -70,8 +69,6 @@ hs_embedding = dict(zip(keys, hs_emb))
 hs_embedding = {str(k).zfill(4): v for k, v in hs_embedding.items()}
 
 
-
-
 # Applying PCA to reduce dimensions for visualization
 from sklearn.decomposition import PCA
 pca = PCA(n_components=2)
@@ -92,15 +89,7 @@ fig.show()
 
 
 
-
-
-
-
-
-
-
-
-
+# Grouping HS codes by HS2 codes
 from collections import defaultdict
 prefix_groups = defaultdict(list)
 for code in hs_embedding.keys():
@@ -109,11 +98,12 @@ for code in hs_embedding.keys():
 
 
 
-from sklearn.metrics.pairwise import cosine_similarity
+
+from sklearn.metrics.pairwise import cosine_similarity, euclidean_distances
 import pandas as pd
 keys = sorted(hs_embedding.keys())
 embeddings = np.stack([hs_embedding[k] for k in keys])
-cos_sim_matrix = cosine_similarity(embeddings)
+euclidean_distances_matrix = euclidean_distances(embeddings)
 key_to_idx = {k: i for i, k in enumerate(keys)}
 
 within_group_sims = []
@@ -124,7 +114,7 @@ for prefix, codes in prefix_groups.items():
         for j in range(len(keys)):
             if i == j:
                 continue  # skip self-comparison
-            sim = cos_sim_matrix[i, j]
+            sim = euclidean_distances_matrix[i, j]
             
             if keys[j][:2] == prefix:
                 within_group_sims.append(sim)
@@ -134,8 +124,8 @@ for prefix, codes in prefix_groups.items():
 avg_within = np.mean(abs(np.array(within_group_sims)))
 avg_out = np.mean(abs(np.array(out_group_sims)))
 
-print(f"Avg cosine similarity within groups: {avg_within:.4f}")
-print(f"Avg cosine similarity out of groups: {avg_out:.4f}")
+print(f"Avg euclidean similarity within groups: {avg_within:.4f}")
+print(f"Avg euclidean similarity out of groups: {avg_out:.4f}")
 
 
 
@@ -145,13 +135,26 @@ def get_top_n_similar_codes(hs_embedding, code, n=5):
     
     for other_code, other_embedding in hs_embedding.items():
         if other_code != code:
-            sim = cosine_similarity([target_embedding], [other_embedding])[0][0]
+            sim = euclidean_distances([target_embedding], [other_embedding])[0][0]
             similarities.append((other_code, sim))
     
     # Sort by similarity score in descending order
-    similarities.sort(key=lambda x: x[1], reverse=True)
+    similarities.sort(key=lambda x: x[1], reverse=False)
     
     return similarities[:n]  # Return top n similar codes
 
 
-get_top_n_similar_codes(hs_embedding, '0201', n=5)
+df = pd.DataFrame(euclidean_distances_matrix)
+df = df.replace(0, 1000)
+a = np.array(df)
+min_index = np.argmin(a)
+row, col = divmod(min_index, a.shape[1])
+print(f"Closest codes: {list(hs_embedding.keys())[df.index[row]]} and {list(hs_embedding.keys())[df.index[col]]}")
+
+
+
+
+get_top_n_similar_codes(hs_embedding, '6204', n=10)
+get_top_n_similar_codes(hs_emb_2d, '2711', n=10)
+
+

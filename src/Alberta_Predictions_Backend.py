@@ -10,6 +10,7 @@ import math
 import torch
 import torch.nn as nn
 from typing import List, Dict, Tuple
+import json
 import pyodbc
 conn = pyodbc.connect(
                         'DRIVER={ODBC Driver 17 for SQL Server};'
@@ -21,6 +22,9 @@ conn = pyodbc.connect(
 Country_codes = pd.read_sql("SELECT * FROM dbo.countryCodesDescriptionStatCanUNComTradeUSCensusBureau", conn)
 
 
+
+with open('../TradeHorizonScanModel/src/model_parameters.json', 'r') as f:
+    model_parameters = json.load(f)
 exporter_map, importer_map, country_map = load_maps(
         '../TradeHorizonScanModel/data/MA_Exporter.csv', 
         '../TradeHorizonScanModel/data/MA_Importer.csv',
@@ -58,7 +62,9 @@ model = TradeHorizonScanModel(n_hs = len(dataset.hs_map),
     dim_imp = next(iter(importer_map.values())).shape[0],
     dim_cty = next(iter(country_map.values())).shape[0]).to(device)
 
-checkpoint = torch.load('../TradeHorizonScanModel/models/checkpoint243.pth')
+
+checkpoint_address = '../TradeHorizonScanModel/models/' + f'{model_parameters["Best_checkpoint"]}'
+checkpoint = torch.load(checkpoint_address)
 model.load_state_dict(checkpoint['model_state_dict'])
 epoch = checkpoint['epoch']
 all_train_losses = checkpoint['all_train_losses']
